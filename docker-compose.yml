@@ -12,24 +12,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks: [internal]
+    ports:
+      # 仅本机开发使用；生产环境删除此映射
+      - "127.0.0.1:5432:5432"
     restart: unless-stopped
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
-    volumes:
-      - minio_data:/data
-    networks: [internal]
-    restart: unless-stopped
-
-networks:
-  internal:
-    internal: true
-
+# api / web / caddy 在阶段 1 加入；照片使用 photos_data 卷
 volumes:
   postgres_data:
-  minio_data:
+  photos_data:

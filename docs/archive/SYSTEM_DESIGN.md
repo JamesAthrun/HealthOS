@@ -8,40 +8,44 @@
 
 ```text
 Mobile/Desktop Browser
-        |
-      HTTPS
+        |  HTTPS（仅 HttpOnly 会话 Cookie）
         v
-  Reverse Proxy / WAF
+  Reverse Proxy（TLS、限流、请求大小限制）
+        |                         |
+        v                         v
+  Next.js Web + BFF          Logto（auth.<domain>）
+        |  Bearer（内部网络）       |
+        v                         |
+  FastAPI REST API  <--JWKS-------+
+  Background Worker + Scheduler
+        |             |
+   PostgreSQL     Private S3-compatible storage
+  (app / web / logto 三个隔离库或 schema)
         |
-  +-----+-----------------------+
-  | Next.js Web                 |
-  | FastAPI REST API            |
-  | Background Worker           |
-  +-----+-------------+---------+
-        |             |
-   PostgreSQL     Private S3
-        |             |
-        +------ AI Gateway ---- External/Local AI Provider
+   AI Gateway ---- DeepSeek API（境内）
 
-External: OIDC identity provider, email provider (optional)
-Operations: metrics, error tracking, encrypted backup target
+External: 境内邮件服务（验证码、邀请）
+Operations: 云监控、错误追踪（D-015）、异地加密备份
 ```
 
-浏览器不直接访问数据库、内部对象存储或 AI Provider。文件下载通过 API 授权后签发短期 URL，或由 API 代理返回。
+浏览器不直接访问 FastAPI、数据库、内部对象存储或 AI Provider。FastAPI 只在内部网络监听，所有业务请求经 Next.js BFF 转发。文件上传和下载使用 BFF 授权后签发的短期预签名 URL；对象存储仅通过反向代理暴露 S3 API 的签名路径，不暴露管理端口。
+
+关键选型见 [架构决策记录](DECISIONS.md)。
 
 ## 3. 逻辑模块
 
 | 模块 | 职责 | 不负责 |
 | --- | --- | --- |
-| Identity & Access | OIDC 身份映射、会话、主体和授权策略 | 保存密码、业务数据共享 |
-| Profiles | 健康档案、目标、偏好和限制 | 诊断或医疗建议 |
+| Identity & Access | OIDC 身份映射、邀请、主体和授权策略 | 保存密码、业务数据共享 |
+| Profiles | 健康档案、目标、偏好、限制和营养参考值计算（D-008） | 诊断或医疗建议 |
 | Records | 饮食、食物项、运动、睡眠 CRUD | 调用外部模型 |
 | Files | 上传会话、校验、元数据、访问授权和生命周期 | 解析业务语义 |
 | AI Gateway | Provider 适配、最小化、结构校验、版本和成本 | 决定最终业务记录 |
 | Planning | 聚合数据、每日建议、每周计划、反馈 | 直接读取其他用户数据 |
 | Consent & Privacy | 同意版本、导出、删除工作流 | 绕过保留策略 |
 | Audit | 追加式安全事件 | 保存完整健康正文或密钥 |
-| Jobs | 异步任务、重试、幂等和死信 | 承载未授权的长期凭据 |
+| Jobs | 异步任务、定时调度、重试、幂等和死信 | 承载未授权的长期凭据 |
+| Web BFF（Next.js） | OIDC 登录、服务端会话、CSRF、API 转发 | 业务授权决策、直接访问数据库业务表 |
 
 模块通过应用服务接口或领域事件协作，禁止跨模块直接依赖别人的 ORM 内部实现。初期可以共用数据库，但各模块拥有明确的表和迁移责任。
 
@@ -65,21 +69,37 @@ backend/app/
 
 frontend/src/
 ├── app/                 # Next.js routes/layouts
+│   └── api/             # BFF：auth 回调、会话、/api/v1 转发
+├── server/              # 仅服务端：OIDC client、会话存储、CSRF
 ├── features/            # profile, meals, activity, sleep, planning
 ├── components/          # 通用无业务 UI
-├── lib/                 # API client, auth, validation, telemetry
-└── types/               # 生成或共享的 API 类型
+├── lib/                 # 浏览器端 API client、validation、telemetry
+└── types/               # 由 OpenAPI 生成的 API 类型
 ```
+
+`server/` 下的代码禁止被客户端组件导入（使用 `server-only` 约束），防止 Token 和密钥进入浏览器 bundle。
 
 ## 5. 身份与授权
 
-1. 使用成熟 OIDC 服务；Web 采用 Authorization Code + PKCE。
-2. API 验证 issuer、audience、签名、有效期和必要声明。
-3. 首次登录创建内部用户，外部 subject 与内部 UUID 唯一映射。
-4. 服务端从认证上下文获得用户 ID；资源路由中的 ID 只代表资源，不代表所有者。
-5. Repository 查询必须同时包含资源 ID 和所有者 ID。
-6. PostgreSQL RLS 作为纵深防御；应用连接角色不得是表所有者或 `BYPASSRLS`。
-7. 后台任务使用显式服务主体和最小权限，任务载荷携带目标用户及授权原因，执行全程审计。
+1. 使用自托管 Logto（D-003）；Next.js BFF 作为机密客户端，采用 Authorization Code + PKCE（D-005）。
+2. 浏览器只持有 `__Host-` 前缀的 HttpOnly 会话 Cookie；Access/Refresh Token 加密保存在服务端会话表中。
+3. BFF 为每个 `/api/v1/*` 请求附加 Access Token；FastAPI 通过 Logto JWKS 验证 issuer、audience、签名、有效期和必要声明，不信任任何来自 BFF 的用户标识头。
+4. 首次登录必须匹配有效邀请（D-002）才创建内部用户，外部 subject 与内部 UUID 唯一映射。
+5. 服务端从认证上下文获得用户 ID；资源路由中的 ID 只代表资源，不代表所有者。
+6. Repository 查询必须同时包含资源 ID 和所有者 ID。
+7. PostgreSQL RLS 作为纵深防御；应用连接角色不得是表所有者或 `BYPASSRLS`。
+8. 后台任务使用显式服务主体和最小权限，任务载荷携带目标用户及授权原因，执行全程审计。Worker 处理某个用户的任务时，同样在事务内设置 `app.current_user_id`，受 RLS 约束。
+9. 敏感操作（导出、账号删除）要求 10 分钟内重新认证；API 检查 Token 中的 `auth_time`。
+
+### 数据库角色
+
+| 角色 | 用途 | 权限 |
+| --- | --- | --- |
+| `healthos_migrator` | Alembic 迁移 | 业务表所有者，仅迁移任务使用 |
+| `healthos_api` | API 运行时 | 业务表 DML，受 RLS 约束 |
+| `healthos_worker` | Worker 运行时 | 同 API，并可读写 `jobs` |
+| `healthos_web` | BFF 会话存储 | 仅 `web` schema |
+| `logto` | 身份服务 | 仅 `logto` 数据库 |
 
 ## 6. 数据与事务
 
@@ -116,6 +136,16 @@ MVP 使用独立 Worker 进程和数据库任务表，避免一开始引入 Redi
 - 任务载荷不存原始图片、Token 或完整健康档案。
 - Worker 失效后可通过租约超时重新领取任务。
 
+Worker 领取任务使用 `SELECT ... FOR UPDATE SKIP LOCKED`，并设置租约时间。
+
+### 定时调度
+
+Worker 内置每分钟运行一次的调度循环（D-010），按用户本地时区计算到期任务，用幂等键写入 `jobs` 表；多个 Worker 实例同时运行时依赖唯一约束去重。调度只负责入队，不直接执行业务逻辑。
+
+### 前端获取结果
+
+前端通过轮询任务状态获取结果（D-011）：2 秒起步，按 1.5 倍递增，最长间隔 10 秒，总时长 2 分钟后停止轮询并提示用户稍后查看。
+
 当任务吞吐或调度需求达到明确阈值，再迁移至托管队列或 Redis/Celery。
 
 ## 9. AI Gateway
@@ -131,13 +161,23 @@ class HealthAI:
 
 Gateway 负责 provider 路由、超时、重试、结构化输出验证、提示模板版本、成本/延迟指标、内容安全和脱敏审计。Provider 配置是部署配置，不写死在业务代码中。
 
+MVP 的 Provider 是 DeepSeek（D-004），通过 OpenAI 兼容接口接入；内部别名 `meal_vision` 和 `planner` 都映射到 `deepseek-flash`。营养参考值由 Profiles 模块用确定性公式计算（D-008），不经过 AI Gateway。
+
 ## 10. 缓存与性能
 
 MVP 不引入共享缓存。7 天看板使用带所有者条件的索引查询和轻量聚合。只有在观测显示数据库压力后才引入缓存，并确保缓存键包含用户范围、短 TTL、删除失效和不缓存高敏正文。
 
 ## 11. 部署拓扑
 
-初期一台服务器运行：reverse proxy、web、api、worker、PostgreSQL 和对象存储。生产环境要求：
+初期一台中国大陆云服务器（D-001）运行：reverse proxy、web（BFF）、api、worker、Logto、PostgreSQL 和对象存储。
+
+| 公网入口 | 转发目标 |
+| --- | --- |
+| `https://<domain>/` | Next.js Web + BFF |
+| `https://auth.<domain>/` | Logto 用户端（不含 Admin Console） |
+| `https://files.<domain>/` | 对象存储 S3 API（仅预签名请求，禁止匿名访问和列举） |
+
+所有公网域名都需要完成 ICP 备案。生产环境要求：
 
 - 仅 443 暴露公网；数据库、对象存储管理端口和内部 API 不公开。
 - 每个容器非 root、只读文件系统（可行处）、资源限制和健康检查。
@@ -171,6 +211,6 @@ MVP 不引入共享缓存。7 天看板使用带所有者条件的索引查询�
 - 订阅：新增 billing 模块，通过 entitlement 控制功能，不让计费状态污染健康数据表。
 - 服务拆分：优先拆高吞吐或高隔离边界（文件处理、AI 任务），保持 API 契约和事件版本。
 
-## 15. 关键待定项
+## 15. 关键决策与待定项
 
-在部署前必须确定：服务器数据地域、OIDC 服务、对象存储实现、AI Provider 及其数据保留/训练/地域政策、备份目的地、通知渠道。它们不会改变模块边界，但会改变部署和隐私告知。
+地域、身份服务、AI Provider、会话架构、对象存储与备份等决策已记录在 [DECISIONS.md](DECISIONS.md)。仍待定的事项包括：云厂商与地域、域名与备案主体、邮件服务、DeepSeek 数据条款核实、监控与错误追踪选型。这些不会改变模块边界，但会影响部署和隐私告知。
