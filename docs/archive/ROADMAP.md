@@ -85,7 +85,7 @@
 
 1. `chore: initialize frontend and backend toolchains`
 2. `infra: provision local postgres and private object storage`
-3. `feat(auth): integrate OIDC and internal user mapping`
+3. `feat(auth): integrate Logto via Next.js BFF, invitations and internal user mapping`
 4. `security: add user-scoped repository pattern and RLS tests`
 5. `feat(files): implement validated private image upload`
 6. `feat(profile): implement profile and goals`
@@ -108,12 +108,14 @@
 - API 和用户文档已更新。
 - 对新增第三方或数据流完成隐私与威胁审查。
 
-## 下一步决策
+## 关键决策
 
-开始阶段 0 前，由项目所有者确认：
+Sprint 0 的主要决策已记录在 [DECISIONS.md](DECISIONS.md)：中国大陆云、公网 + 邀请制、自托管 Logto、DeepSeek、BFF 会话、仅成年人、自托管对象存储 + 异地加密备份、公式营养参考值。
 
-1. 生产服务器所在地（中国大陆/香港/新加坡/美国等）。
-2. 首选 OIDC 身份服务。
-3. 首选 AI Provider 及数据处理条件。
-4. 是否先只在局域网/受控 VPN 内试用。
-5. 备份目标和可接受的恢复目标。
+开始阶段 0 前仍需项目所有者确认：
+
+1. 云厂商（阿里云/腾讯云）和主地域。
+2. 正式域名和 ICP 备案主体（备案需尽早启动）。
+3. 境内邮件发送服务。
+4. DeepSeek 数据处理条款核实（Sprint 4 前）。
+5. 数据保留期限（D-014）。

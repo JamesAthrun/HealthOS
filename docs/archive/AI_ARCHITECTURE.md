@@ -4,6 +4,8 @@
 
 AI 用于减少录入成本、整理趋势和起草行动建议。AI 不拥有事实最终决定权，不进行医疗诊断，不替代专业人员。正式统计使用用户确认数据。
 
+热量和营养目标参考值由确定性公式计算（[DECISIONS.md](DECISIONS.md) D-008），**不由 AI 生成**。AI 生成建议时只能引用用户已确认的目标，不得提出新的热量数值。
+
 ## 2. 三类能力
 
 | 能力 | 输入 | 输出 | 必须人工确认 |
@@ -20,9 +22,30 @@ AI 用于减少录入成本、整理趋势和起草行动建议。AI 不拥有�
 
 不发送：姓名、邮箱、精确位置、家庭关系、完整档案、历史病历。上传后移除非必要 EXIF；界面提醒用户避免拍入人脸、药盒标签和身份信息。
 
+图片预处理：解码后重新编码为 JPEG（长边不超过 1536 px、质量 85），去除全部元数据后再以 base64 发送。不向 Provider 发送对象存储 URL。
+
 ### 规划
 
 发送结构化摘要，例如每天总量范围、记录完整度、运动分钟、睡眠时长趋势、本人目标和相关限制。不发送原始照片、完整自由文本、账号标识和不相关历史。
+
+每日建议输入示例（`DailySummary`，字段均由服务端从确认数据聚合）：
+
+```json
+{
+  "schema_version": "1.0",
+  "local_date": "2026-10-29",
+  "age_band": "30-39",
+  "context_flags": [],
+  "goals": {"daily_energy_kcal": 1900, "weekly_exercise_minutes": 150, "nightly_sleep_hours": 7.5},
+  "intake": {"energy_kcal": 1650, "protein_g": 62, "meals_confirmed": 3, "meals_unconfirmed": 1},
+  "exercise": {"minutes": 20, "intensity": "moderate"},
+  "last_night_sleep": {"hours": 6.1, "quality_score": 3},
+  "dietary_preferences": ["少辣"],
+  "allergies": ["花生"]
+}
+```
+
+年龄只发送年龄段；`context_flags` 可包含 `pregnant_or_lactating`、`underweight_bmi` 等安全标记，而不是原始数值。`exercise_limitations` 自由文本默认不发送，只发送用户在档案中勾选的结构化限制标签。
 
 ## 4. 请求管线
 
@@ -64,19 +87,63 @@ Authorize purpose and user
 
 服务端拒绝未知结构、超长内容、无证据引用和违反安全规则的输出。展示层不得把模型生成的引用伪装成医学证据。
 
+`evidence_refs` 只能从服务端在输入中提供的引用 ID 列表中选择；输出中出现不在列表里的 ID 时整条建议作废。
+
+饮食识别输出示例：
+
+```json
+{
+  "schema_version": "1.0",
+  "is_food_image": true,
+  "overall_confidence": "medium",
+  "items": [
+    {
+      "draft_item_id": "d1",
+      "name": "番茄炒蛋",
+      "quantity": 150,
+      "unit": "g",
+      "calories_kcal": 180,
+      "protein_g": 10,
+      "carbs_g": 6,
+      "fat_g": 13,
+      "fiber_g": 1,
+      "confidence": "medium"
+    }
+  ],
+  "notes": ["无法判断用油量，热量可能偏差较大。"]
+}
+```
+
+`is_food_image = false` 时不展示任何食物项，提示用户重拍或手工录入。
+
 ## 6. 安全策略
 
 生成前后均执行规则检查：
 
 - 禁止诊断、用药/停药、紧急状况处置替代专业建议。
 - 禁止极端节食、惩罚性运动、自伤或危险挑战。
-- 对孕期、未成年人、进食障碍提示、严重症状等高风险上下文，不生成个性化限制方案，改为安全边界提示和专业支持建议。
+- 对孕期/哺乳期、体重过低（BMI < 18.5）、进食障碍提示、严重症状等高风险上下文，不生成个性化限制方案，改为安全边界提示和专业支持建议。MVP 仅服务成年人（D-006）。
+- 建议中不得出现低于热量下限（D-008）的摄入建议，也不得建议超过用户活动水平明显范围的运动量突增。
 - 对记录不足、冲突或异常值明确表示不确定。
 - 不以 AI 内容覆盖用户已确认事实。
 
-紧急提示必须采用产品预先审核的确定性文案，而不是临时由模型自由生成。
+紧急提示必须采用产品预先审核的确定性文案（如“如出现胸痛、呼吸困难等紧急症状，请立即拨打 120 或前往最近的医院”），而不是临时由模型自由生成。
 
 ## 7. Provider Adapter
+
+MVP Provider 为 DeepSeek（D-004）：
+
+| 内部别名 | 模型 | 模式 | 超时 | 重试 |
+| --- | --- | --- | --- | --- |
+| `meal_vision` | `deepseek-flash` | 非思考模式，图片输入，JSON Output | 30 s | 最多 2 次 |
+| `planner` | `deepseek-flash` | 非思考模式，JSON Output | 45 s | 最多 2 次 |
+
+实现注意：
+
+- 通过 OpenAI 兼容 SDK/HTTP 调用 `https://api.deepseek.com`；Adapter 不依赖 DeepSeek 私有特性，便于切换到其他境内 Provider。
+- JSON Output 只保证返回合法 JSON，不保证符合 Schema；必须用 Pydantic 严格校验，失败时可带校验错误摘要重试 1 次。
+- 不启用工具调用和联网搜索。
+- 预算：配置每月总预算和每用户每日调用上限；定时生成的周计划安排在 DeepSeek 低谷价格时段。预算耗尽时返回 `AI_BUDGET_EXHAUSTED`。
 
 统一接口隐藏供应商 SDK，配置包括：
 
