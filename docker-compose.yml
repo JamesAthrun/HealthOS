@@ -1,3 +1,9 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -5,6 +11,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-healthos}
       POSTGRES_USER: ${POSTGRES_USER:-healthos_app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c max_connections=20
+      -c work_mem=4MB
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -12,12 +23,41 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    ports:
-      # 仅本机开发使用；生产环境删除此映射
-      - "127.0.0.1:5432:5432"
+    mem_limit: 384m
+    logging: *logging
     restart: unless-stopped
 
-# api / web / caddy 在阶段 1 加入；照片使用 photos_data 卷
+  api:
+    build: ./backend
+    image: healthos-api:dev
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-healthos_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-healthos}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - photos_data:/data/photos
+    mem_limit: 512m
+    logging: *logging
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    ports:
+      # 本地开发；Sprint 5 改为 80:80 和 443:443
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./infrastructure/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend/out:/srv/web:ro
+      - caddy_data:/data
+    depends_on:
+      - api
+    mem_limit: 64m
+    logging: *logging
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   photos_data:
+  caddy_data:

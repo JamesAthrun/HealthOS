@@ -1,5 +1,5 @@
 # Infrastructure
 
-本目录用于保存不含 Secret 的部署、备份、恢复和可观测性配置。
+- `Caddyfile`：入口配置。`/api/*` 转发到 FastAPI，其余请求提供前端静态文件。当前为本地开发配置（`http://localhost:8080`），Sprint 5 改为 HTTPS（`tls internal`），见 [docs/DESIGN.md](../docs/DESIGN.md) 第 7 节。
 
-生产配置必须保证 PostgreSQL 与对象存储管理端口不暴露公网，并将 Secret 从版本控制和镜像中排除。
+Sprint 5 会在这里加入备份脚本。
