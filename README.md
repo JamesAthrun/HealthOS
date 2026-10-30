@@ -31,6 +31,7 @@ HealthOS 帮助用户记录饮食、运动和睡眠，并基于本人确认的�
 | [AI 架构](docs/AI_ARCHITECTURE.md) | AI、后端、产品 | 识别与规划流程、隐私、评估和降级 |
 | [安全与隐私](docs/SECURITY_PRIVACY.md) | 全团队 | 威胁模型、安全基线、备份与响应 |
 | [开发路线](docs/ROADMAP.md) | 项目负责人 | 阶段、任务、验收门槛和发布条件 |
+| [Sprint 与上线计划](docs/SPRINT_ROLLOUT_PLAN.md) | 项目负责人、开发、运维 | 逐 Sprint 交付、本地测试和 Docker 服务器部署 |
 
 ## 推荐技术栈
 
