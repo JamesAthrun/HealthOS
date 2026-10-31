@@ -15,20 +15,20 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    context.configure(url=get_settings().database_url, target_metadata=target_metadata, literal_binds=True)
+    context.configure(url=get_settings().sqlalchemy_database_url, target_metadata=target_metadata, literal_binds=True)
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online() -> None:
-    url = get_settings().database_url
+    url = get_settings().sqlalchemy_database_url
     engine = create_engine(url)
     with engine.connect() as connection:
         # SQLite 不支持大部分 ALTER TABLE，批量模式会自动重建表
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            render_as_batch=url.startswith("sqlite"),
+            render_as_batch=url.get_backend_name() == "sqlite",
         )
         with context.begin_transaction():
             context.run_migrations()

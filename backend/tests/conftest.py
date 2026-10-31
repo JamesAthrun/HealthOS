@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -38,8 +39,20 @@ def _ensure_postgres_test_database() -> None:
             conn.execute(f'CREATE DATABASE "{url.database}"')
 
 
+def _assert_safe_test_database() -> None:
+    """PostgreSQL 测试会清空表，拒绝名称不像测试库的目标。"""
+    url = make_url(TEST_DATABASE_URL)
+    if url.get_backend_name() == "postgresql":
+        database = url.database or ""
+        if re.fullmatch(r"[A-Za-z0-9_]+_test", database) is None:
+            raise RuntimeError(
+                "拒绝清空非测试 PostgreSQL 数据库；TEST_DATABASE_URL 的数据库名必须以 _test 结尾"
+            )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def database() -> None:
+    _assert_safe_test_database()
     if TEST_DATABASE_URL.startswith("postgresql"):
         _ensure_postgres_test_database()
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))

@@ -32,7 +32,8 @@ services:
     image: healthos-api:dev
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-healthos_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-healthos}
+      # 后端用 URL.create 组合这些字段，密码无需手工 URL 编码。
+      POSTGRES_HOST: postgres
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,13 +44,14 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: caddy:2.10-alpine
+    build:
+      context: .
+      dockerfile: infrastructure/Dockerfile
+    image: healthos-web:dev
     ports:
       # 本地开发；Sprint 5 改为 80:80 和 443:443
       - "127.0.0.1:8080:80"
     volumes:
-      - ./infrastructure/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./frontend/out:/srv/web:ro
       - caddy_data:/data
     depends_on:
       - api

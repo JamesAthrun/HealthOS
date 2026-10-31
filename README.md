@@ -25,7 +25,7 @@ infrastructure/  Caddy 配置
 
 ## 本地开发（不需要 Docker）
 
-本地使用 SQLite 文件（`backend/healthos_dev.sqlite3`），不需要安装数据库。先复制 `.env.example` 为 `.env`。
+本地使用 SQLite 文件（`backend/healthos_dev.sqlite3`），不需要安装数据库。前端需要 Node.js 20.9 或更高版本（推荐 Node.js 22）。先复制 `.env.example` 为 `.env`。
 
 ```powershell
 # 后端（首次运行的步骤见 backend/README.md），运行在 :8000
@@ -42,11 +42,12 @@ cd frontend; npm install; npm run dev
 只有部署时使用 Docker Compose 和 PostgreSQL，步骤见 [docs/DESIGN.md](docs/DESIGN.md) 第 7 节。部署前也可以在本机用同一套容器验证：
 
 ```powershell
-cd frontend; npm run build; cd ..
 docker compose up -d --build
 docker compose run --rm api alembic upgrade head
 docker compose exec api python -m app.cli create-user alice
 ```
+
+前端会在 Docker 的 Node.js 构建阶段生成静态文件，服务器不需要另外安装 Node.js。
 
 打开 http://localhost:8080。
 
