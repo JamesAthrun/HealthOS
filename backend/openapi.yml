@@ -601,6 +601,257 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/dashboard/today:
+    get:
+      tags:
+      - dashboard
+      summary: Get Today Dashboard
+      operationId: get_today_dashboard_api_dashboard_today_get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: 'on'
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: 按账号时区计算的日期
+          title: 'On'
+        description: 按账号时区计算的日期
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodayDashboard'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/dashboard/trends:
+    get:
+      tags:
+      - dashboard
+      summary: Get Trend Dashboard
+      operationId: get_trend_dashboard_api_dashboard_trends_get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: 结束日期（包含）
+          title: To
+        description: 结束日期（包含）
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 31
+          minimum: 1
+          default: 7
+          title: Days
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendDashboard'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/ai-consent:
+    get:
+      tags:
+      - meal photos
+      summary: Get Ai Consent
+      operationId: get_ai_consent_api_ai_consent_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentOut'
+      security:
+      - SessionCookie: []
+    put:
+      tags:
+      - meal photos
+      summary: Grant Ai Consent
+      operationId: grant_ai_consent_api_ai_consent_put
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentOut'
+      security:
+      - SessionCookie: []
+    delete:
+      tags:
+      - meal photos
+      summary: Revoke Ai Consent
+      operationId: revoke_ai_consent_api_ai_consent_delete
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentOut'
+      security:
+      - SessionCookie: []
+  /api/meal-photos:
+    post:
+      tags:
+      - meal photos
+      summary: Upload Meal Photo
+      operationId: upload_meal_photo_api_meal_photos_post
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealPhotoOut'
+      security:
+      - SessionCookie: []
+  /api/meal-photos/{photo_id}:
+    get:
+      tags:
+      - meal photos
+      summary: Get Meal Photo
+      operationId: get_meal_photo_api_meal_photos__photo_id__get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: photo_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Photo Id
+      responses:
+        '200':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-photos/{photo_id}/analyze:
+    post:
+      tags:
+      - meal photos
+      summary: Analyze Meal Photo
+      operationId: analyze_meal_photo_api_meal_photos__photo_id__analyze_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: photo_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Photo Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealAnalysisOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-photos/{photo_id}/analysis:
+    get:
+      tags:
+      - meal photos
+      summary: Get Meal Analysis
+      operationId: get_meal_analysis_api_meal_photos__photo_id__analysis_get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: photo_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Photo Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealAnalysisOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-photos/{photo_id}/confirm:
+    post:
+      tags:
+      - meal photos
+      summary: Confirm Meal Analysis
+      operationId: confirm_meal_analysis_api_meal_photos__photo_id__confirm_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: photo_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Photo Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/health:
     get:
       summary: Health
@@ -687,6 +938,70 @@ components:
       - current_password
       - new_password
       title: ChangePasswordIn
+    ConsentOut:
+      properties:
+        granted:
+          type: boolean
+          title: Granted
+        granted_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Granted At
+      type: object
+      required:
+      - granted
+      - granted_at
+      title: ConsentOut
+    DailySummary:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        kcal:
+          type: number
+          title: Kcal
+        protein_g:
+          type: number
+          title: Protein G
+        carbs_g:
+          type: number
+          title: Carbs G
+        fat_g:
+          type: number
+          title: Fat G
+        meal_count:
+          type: integer
+          title: Meal Count
+        exercise_minutes:
+          type: integer
+          title: Exercise Minutes
+        steps:
+          type: integer
+          title: Steps
+        sleep_minutes:
+          type: integer
+          title: Sleep Minutes
+        sleep_quality:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Sleep Quality
+      type: object
+      required:
+      - date
+      - kcal
+      - protein_g
+      - carbs_g
+      - fat_g
+      - meal_count
+      - exercise_minutes
+      - steps
+      - sleep_minutes
+      - sleep_quality
+      title: DailySummary
     ExerciseIn:
       properties:
         type:
@@ -991,6 +1306,55 @@ components:
       - username
       - password
       title: LoginIn
+    MealAnalysisOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        photo_id:
+          type: string
+          format: uuid
+          title: Photo Id
+        status:
+          type: string
+          title: Status
+        provider:
+          type: string
+          title: Provider
+        model:
+          type: string
+          title: Model
+        prompt_version:
+          type: string
+          title: Prompt Version
+        result:
+          anyOf:
+          - $ref: '#/components/schemas/MealRecognition'
+          - type: 'null'
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        confirmed_meal_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Confirmed Meal Id
+      type: object
+      required:
+      - id
+      - photo_id
+      - status
+      - provider
+      - model
+      - prompt_version
+      - result
+      - error_code
+      - confirmed_meal_id
+      title: MealAnalysisOut
     MealIn:
       properties:
         eaten_at:
@@ -1106,6 +1470,68 @@ components:
       additionalProperties: false
       type: object
       title: MealPatch
+    MealPhotoOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        content_type:
+          type: string
+          title: Content Type
+        byte_size:
+          type: integer
+          title: Byte Size
+        width:
+          type: integer
+          title: Width
+        height:
+          type: integer
+          title: Height
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - content_type
+      - byte_size
+      - width
+      - height
+      - created_at
+      title: MealPhotoOut
+    MealRecognition:
+      properties:
+        meal_type:
+          type: string
+          pattern: ^(breakfast|lunch|dinner|snack)$
+          title: Meal Type
+        food_items:
+          items:
+            $ref: '#/components/schemas/RecognizedFoodItem'
+          type: array
+          maxItems: 20
+          minItems: 1
+          title: Food Items
+        overall_confidence:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Overall Confidence
+        warnings:
+          items:
+            type: string
+          type: array
+          maxItems: 10
+          title: Warnings
+      additionalProperties: false
+      type: object
+      required:
+      - meal_type
+      - food_items
+      - overall_confidence
+      title: MealRecognition
     ProfileIn:
       properties:
         birth_year:
@@ -1241,6 +1667,60 @@ components:
       - user_id
       - updated_at
       title: ProfileOut
+    RecognizedFoodItem:
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Name
+        quantity:
+          type: number
+          maximum: 100000.0
+          exclusiveMinimum: 0.0
+          title: Quantity
+        unit:
+          type: string
+          maxLength: 20
+          minLength: 1
+          title: Unit
+        kcal:
+          type: number
+          maximum: 10000.0
+          minimum: 0.0
+          title: Kcal
+        protein_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Protein G
+          default: 0
+        carbs_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Carbs G
+          default: 0
+        fat_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Fat G
+          default: 0
+        confidence:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Confidence
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - quantity
+      - unit
+      - kcal
+      - confidence
+      title: RecognizedFoodItem
     SleepIn:
       properties:
         started_at:
@@ -1342,6 +1822,54 @@ components:
       additionalProperties: false
       type: object
       title: SleepPatch
+    TodayDashboard:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        target_kcal:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Target Kcal
+        kcal_completion_percent:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Kcal Completion Percent
+        summary:
+          $ref: '#/components/schemas/DailySummary'
+      type: object
+      required:
+      - date
+      - target_kcal
+      - kcal_completion_percent
+      - summary
+      title: TodayDashboard
+    TrendDashboard:
+      properties:
+        from_date:
+          type: string
+          format: date
+          title: From Date
+        to_date:
+          type: string
+          format: date
+          title: To Date
+        days:
+          items:
+            $ref: '#/components/schemas/DailySummary'
+          type: array
+          maxItems: 31
+          minItems: 1
+          title: Days
+      type: object
+      required:
+      - from_date
+      - to_date
+      - days
+      title: TrendDashboard
     UserOut:
       properties:
         id:

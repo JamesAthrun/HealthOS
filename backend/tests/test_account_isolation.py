@@ -3,7 +3,7 @@ from sqlalchemy import select
 
 from app.audit import add_audit_event, set_tenant_context
 from app.db import SessionLocal, engine
-from app.models import AuditEvent, User
+from app.models import AuditEvent, MealPhoto, User
 from tests.conftest import create_user, login, new_client
 
 
@@ -130,3 +130,22 @@ def test_postgres_rls_blocks_direct_cross_user_query():
         set_tenant_context(db, alice.id)
         assert db.scalar(select(AuditEvent).where(AuditEvent.id == bob_event_id)) is None
         assert db.scalar(select(User).where(User.id == alice.id)) is not None
+
+    with SessionLocal() as db:
+        set_tenant_context(db, bob.id)
+        photo = MealPhoto(
+            user_id=bob.id,
+            storage_key=f"{bob.id}/rls-test.jpg",
+            sha256="0" * 64,
+            content_type="image/jpeg",
+            byte_size=3,
+            width=1,
+            height=1,
+        )
+        db.add(photo)
+        db.commit()
+        bob_photo_id = photo.id
+
+    with SessionLocal() as db:
+        set_tenant_context(db, alice.id)
+        assert db.scalar(select(MealPhoto).where(MealPhoto.id == bob_photo_id)) is None

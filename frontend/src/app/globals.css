@@ -39,6 +39,130 @@ h1 {
   margin: 0 0 16px;
 }
 
+h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric {
+  display: flex;
+  min-height: 112px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfdfc;
+}
+
+.metric > span,
+.metric > small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.metric strong {
+  font-size: 24px;
+}
+
+.metric strong small {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.quick-actions a {
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.trend-list {
+  display: grid;
+  gap: 10px;
+}
+
+.trend-day {
+  display: grid;
+  grid-template-columns: 42px minmax(72px, 1fr) 52px 52px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.trend-day time,
+.trend-day small {
+  color: var(--muted);
+}
+
+.trend-day strong,
+.trend-day small {
+  text-align: right;
+}
+
+.trend-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1ef;
+}
+
+.trend-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+.photo-preview {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  background-position: center;
+  background-size: cover;
+}
+
+.consent-box {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fffaf0;
+}
+
+.consent-box p {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.warning-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #8a5a16;
+  font-size: 14px;
+}
+
 label {
   display: block;
   margin-bottom: 12px;

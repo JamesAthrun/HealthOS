@@ -12,7 +12,12 @@ const EVENT_LABELS: Record<string, string> = {
   password_changed: "修改密码",
   settings_changed: "修改账号设置",
   session_expired: "会话过期",
+  ai_consent_granted: "同意 AI 图片处理",
+  ai_consent_revoked: "撤回 AI 图片处理同意",
+  meal_ai_confirmed: "确认 AI 饮食草稿",
 };
+
+type Consent = { granted: boolean; granted_at: string | null };
 
 export default function SettingsPage() {
   const me = useMe();
@@ -26,13 +31,29 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
   const [timezone, setTimezone] = useState(initialMe.timezone);
   const [locale, setLocale] = useState(initialMe.locale);
   const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [consent, setConsent] = useState<Consent | null>(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    api<AuditEvent[]>("/me/audit-events").then(setEvents).catch(() => setEvents([]));
+    Promise.all([api<AuditEvent[]>("/me/audit-events"), api<Consent>("/ai-consent")])
+      .then(([auditEvents, aiConsent]) => {
+        setEvents(auditEvents);
+        setConsent(aiConsent);
+      })
+      .catch(() => setEvents([]));
   }, []);
+
+  async function revokeConsent() {
+    setError("");
+    try {
+      setConsent(await api<Consent>("/ai-consent", { method: "DELETE" }));
+      setEvents(await api<AuditEvent[]>("/me/audit-events"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "撤回失败，请稍后重试");
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -85,6 +106,18 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
           {submitting ? "保存中…" : "保存设置"}
         </button>
       </form>
+
+      <section className="card stack">
+        <h1>AI 图片处理</h1>
+        {consent?.granted ? (
+          <>
+            <p>已同意在你主动点击识别时，将餐食照片发送给 DeepSeek。撤回后不会再发起新的 AI 识别。</p>
+            <button type="button" className="secondary" onClick={revokeConsent}>撤回 AI 图片处理同意</button>
+          </>
+        ) : (
+          <p>当前未同意 AI 图片处理。手工饮食记录不受影响。</p>
+        )}
+      </section>
 
       <section className="card">
         <h1>最近安全活动</h1>

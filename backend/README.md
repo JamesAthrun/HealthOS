@@ -58,6 +58,23 @@ python -m app.cli reset-password <用户名>
 
 ## DeepSeek 识别试调
 
+Sprint 3 的正式流程在前端 `/meal-photo/`：照片先在服务端验证实际格式、移除 EXIF 并压缩为 JPEG，然后才会在用户明确同意并点击识别时发送给 DeepSeek。AI 返回值始终是草稿，只有用户修改并确认后才会生成正式饮食记录并进入看板。
+
+在仓库根目录 `.env` 配置：
+
+```text
+PHOTO_DIR=/data/photos
+DEEPSEEK_API_KEY=<你的密钥>
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-flash
+```
+
+本机不设置 `PHOTO_DIR` 时使用 `backend/uploads/photos`；该目录已被 Git 忽略。Docker 使用私有 `photos_data` 卷。图片读取接口要求登录且校验所有者，不把照片目录作为静态文件公开。
+
+当前适配器按照 DeepSeek 官方 [Vision](https://api-docs.deepseek.com/guides/vision/) 和 [Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion/) 格式传入压缩后的 JPEG。没有 API Key 或 Provider 失败时，手工饮食记录仍可正常使用。
+
+也可用命令行脚本单独试调模型：
+
 ```powershell
 .\.venv\Scripts\python scripts\probe_meal_vision.py 照片1.jpg 照片2.jpg
 ```
