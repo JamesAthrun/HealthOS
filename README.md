@@ -18,15 +18,37 @@ Next.js（静态导出）+ FastAPI + PostgreSQL + DeepSeek，用 Docker Compose 
 
 ```text
 docs/            设计文档
-frontend/        Next.js（阶段 1 创建）
-backend/         FastAPI（阶段 1 创建）
-infrastructure/  Caddy 配置、备份脚本
-tests/           跨用户隔离等测试
+frontend/        Next.js，构建为静态文件
+backend/         FastAPI、Alembic 迁移、测试
+infrastructure/  Caddy 配置
 ```
 
-## 本地启动（目前只有数据库）
+## 本地开发（不需要 Docker）
 
-1. 复制 `.env.example` 为 `.env`，填写本地使用的值。
-2. 运行 `docker compose up -d postgres`。
+本地使用 SQLite 文件（`backend/healthos_dev.sqlite3`），不需要安装数据库。前端需要 Node.js 20.9 或更高版本（推荐 Node.js 22）。先复制 `.env.example` 为 `.env`。
+
+```powershell
+# 后端（首次运行的步骤见 backend/README.md），运行在 :8000
+cd backend; .\.venv\Scripts\uvicorn app.main:app --reload --port 8000
+
+# 前端，另开一个终端
+cd frontend; npm install; npm run dev
+```
+
+打开 http://localhost:3000。
+
+## 部署（Docker）
+
+只有部署时使用 Docker Compose 和 PostgreSQL，步骤见 [docs/DESIGN.md](docs/DESIGN.md) 第 7 节。部署前也可以在本机用同一套容器验证：
+
+```powershell
+docker compose up -d --build
+docker compose run --rm api alembic upgrade head
+docker compose exec api python -m app.cli create-user alice
+```
+
+前端会在 Docker 的 Node.js 构建阶段生成静态文件，服务器不需要另外安装 Node.js。
+
+打开 http://localhost:8080。
 
 不要把 `.env`、真实健康数据或照片提交到 Git。

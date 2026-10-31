@@ -1,5 +1,15 @@
 # Frontend
 
-计划使用 Next.js、React 和 TypeScript 构建移动端优先的响应式 Web / PWA。
+Next.js（App Router），生产构建为纯静态文件（`out/`），由 Caddy 提供。
 
-阶段 0 初始化前，请先依据 `docs/MVP_PRD.md` 和 `docs/API_DESIGN.md` 确认 OIDC/BFF 方案。不得在浏览器持久化高敏健康数据或长期访问 Token。
+需要 Node.js 20.9 或更高版本，推荐使用仓库 `.nvmrc` 指定的 Node.js 22。
+
+```bash
+npm install
+npm run dev     # http://localhost:3000，/api 转发到 http://127.0.0.1:8000
+npm run build   # 生成 out/
+```
+
+如果后端不在默认的 `127.0.0.1:8000`，启动前设置 `HEALTHOS_API_URL`，例如 `HEALTHOS_API_URL=http://127.0.0.1:8001 npm run dev`。
+
+限制：静态导出不支持服务端功能（SSR、Server Actions、rewrites 等），页面都用客户端组件，通过 `/api` 调用后端。
