@@ -31,6 +31,12 @@ class Settings(BaseSettings):
         "http://localhost:8080",
         "http://127.0.0.1:8080",
     ]
+    photo_dir: Path = BACKEND_DIR / "uploads" / "photos"
+    max_photo_bytes: int = 10 * 1024 * 1024
+    deepseek_api_key: str | None = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-flash"
+    deepseek_timeout_seconds: float = 30.0
 
     @field_validator("allowed_origins", mode="before")
     @classmethod

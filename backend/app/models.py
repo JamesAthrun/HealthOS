@@ -1,7 +1,18 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, LargeBinary, String, Text, func
+from sqlalchemy import (
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -38,6 +49,7 @@ class User(Base):
     locale: Mapped[str] = mapped_column(String(16), default="zh-CN")
     failed_login_count: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    ai_consent_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
 
 
@@ -90,6 +102,9 @@ class Meal(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    photo_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("meal_photos.id", ondelete="SET NULL"), index=True
+    )
     eaten_at: Mapped[datetime] = mapped_column(UTCDateTime)
     meal_type: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(16), default="confirmed")
@@ -146,6 +161,52 @@ class Sleep(Base):
     ended_at: Mapped[datetime] = mapped_column(UTCDateTime)
     quality: Mapped[int] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MealPhoto(Base):
+    __tablename__ = "meal_photos"
+    __table_args__ = (
+        UniqueConstraint("user_id", "sha256", name="uq_meal_photos_user_sha256"),
+        Index("ix_meal_photos_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    storage_key: Mapped[str] = mapped_column(String(255), unique=True)
+    sha256: Mapped[str] = mapped_column(String(64))
+    content_type: Mapped[str] = mapped_column(String(32))
+    byte_size: Mapped[int] = mapped_column(Integer)
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+
+
+class MealAnalysis(Base):
+    __tablename__ = "meal_analyses"
+    __table_args__ = (Index("ix_meal_analyses_user_created", "user_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    photo_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("meal_photos.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    confirmed_meal_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("meals.id", ondelete="SET NULL"), unique=True
+    )
+    status: Mapped[str] = mapped_column(String(16))
+    provider: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(64))
+    prompt_version: Mapped[str] = mapped_column(String(32))
+    result_json: Mapped[str | None] = mapped_column(Text)
+    error_code: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, server_default=func.now(), onupdate=func.now()

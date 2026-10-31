@@ -13,6 +13,7 @@ TEST_DATABASE_URL = os.environ.get(
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["ALLOWED_ORIGINS"] = "http://testserver"
 os.environ["COOKIE_SECURE"] = "false"
+os.environ["PHOTO_DIR"] = str(Path(_TMP_DIR) / "photos")
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402

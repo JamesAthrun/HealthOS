@@ -29,6 +29,26 @@ export async function api<T>(path: string, options: { method?: string; body?: un
   return (await res.json()) as T;
 }
 
+export async function uploadApi<T>(path: string, file: File): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+  if (!res.ok) {
+    let message = "照片上传失败，请稍后再试";
+    try {
+      const data = await res.json();
+      if (typeof data.detail === "string") message = data.detail;
+    } catch {
+      // 非 JSON 响应，使用默认提示
+    }
+    throw new ApiError(res.status, message);
+  }
+  return (await res.json()) as T;
+}
+
 export type Me = {
   id: string;
   username: string;

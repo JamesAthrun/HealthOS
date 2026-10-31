@@ -44,6 +44,32 @@ export type Sleep = {
   updated_at: string;
 };
 
+export type DailySummary = {
+  date: string;
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  meal_count: number;
+  exercise_minutes: number;
+  steps: number;
+  sleep_minutes: number;
+  sleep_quality: number | null;
+};
+
+export type TodayDashboard = {
+  date: string;
+  target_kcal: number | null;
+  kcal_completion_percent: number | null;
+  summary: DailySummary;
+};
+
+export type TrendDashboard = {
+  from_date: string;
+  to_date: string;
+  days: DailySummary[];
+};
+
 export function toDateTimeLocal(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
