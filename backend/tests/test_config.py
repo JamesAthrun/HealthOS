@@ -30,3 +30,11 @@ def test_postgres_test_database_must_use_test_suffix(monkeypatch):
 
     with pytest.raises(RuntimeError, match="必须以 _test 结尾"):
         conftest._assert_safe_test_database()
+
+
+def test_default_origins_support_localhost_and_loopback(monkeypatch):
+    monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
+    settings = Settings(_env_file=None)
+
+    assert "http://localhost:3000" in settings.allowed_origins
+    assert "http://127.0.0.1:3000" in settings.allowed_origins

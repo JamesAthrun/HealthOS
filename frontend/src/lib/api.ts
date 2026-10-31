@@ -35,4 +35,13 @@ export type Me = {
   display_name: string;
   is_admin: boolean;
   timezone: string;
+  locale: string;
+};
+
+export type AuditEvent = {
+  id: string;
+  event_type: string;
+  outcome: string;
+  ip_address: string | null;
+  created_at: string;
 };

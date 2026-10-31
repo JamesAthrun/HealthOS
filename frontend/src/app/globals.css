@@ -46,7 +46,9 @@ label {
   color: var(--muted);
 }
 
-input {
+input,
+select,
+textarea {
   display: block;
   width: 100%;
   margin-top: 4px;
@@ -54,6 +56,73 @@ input {
   font-size: 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.reference {
+  padding: 12px;
+  border-radius: 8px;
+  background: #edf7f1;
+}
+
+.record-card {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.record-card:first-child {
+  border-top: 0;
+}
+
+.record-card p {
+  margin: 4px 0;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.actions button {
+  width: auto;
+  flex: 1;
+}
+
+button.danger {
+  background: var(--danger);
+}
+
+.food-row {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.event-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event-list li {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.event-list small {
+  display: block;
+  color: var(--muted);
 }
 
 button {

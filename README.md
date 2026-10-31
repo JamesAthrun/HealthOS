@@ -43,9 +43,10 @@ cd frontend; npm install; npm run dev
 
 ```powershell
 docker compose up -d --build
-docker compose run --rm api alembic upgrade head
 docker compose exec api python -m app.cli create-user alice
 ```
+
+`docker compose up` 会先运行一次性的 `migrate` 服务，再启动使用最小权限数据库角色的 API。
 
 前端会在 Docker 的 Node.js 构建阶段生成静态文件，服务器不需要另外安装 Node.js。
 
