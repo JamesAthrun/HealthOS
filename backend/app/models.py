@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, LargeBinary, String, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, LargeBinary, String, Text, func
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -35,6 +35,7 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(50))
     is_admin: Mapped[bool] = mapped_column(default=False)
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Shanghai")
+    locale: Mapped[str] = mapped_column(String(16), default="zh-CN")
     failed_login_count: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
@@ -48,3 +49,104 @@ class UserSession(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class AuditEvent(Base):
+    """用户可见的安全事件；只记录元数据，不记录密码、Token 或请求正文。"""
+
+    __tablename__ = "audit_events"
+    __table_args__ = (Index("ix_audit_events_user_created", "user_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    event_type: Mapped[str] = mapped_column(String(32))
+    outcome: Mapped[str] = mapped_column(String(16))
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+
+
+class Profile(Base):
+    __tablename__ = "profiles"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    birth_year: Mapped[int | None] = mapped_column(Integer)
+    sex: Mapped[str | None] = mapped_column(String(16))
+    height_cm: Mapped[float | None] = mapped_column(Float)
+    weight_kg: Mapped[float | None] = mapped_column(Float)
+    activity_level: Mapped[str | None] = mapped_column(String(16))
+    dietary_preferences: Mapped[str | None] = mapped_column(Text)
+    allergies: Mapped[str | None] = mapped_column(Text)
+    daily_kcal_target: Mapped[int | None] = mapped_column(Integer)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Meal(Base):
+    __tablename__ = "meals"
+    __table_args__ = (Index("ix_meals_user_eaten", "user_id", "eaten_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    eaten_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    meal_type: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default="confirmed")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class FoodItem(Base):
+    __tablename__ = "food_items"
+    __table_args__ = (Index("ix_food_items_user_meal", "user_id", "meal_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    meal_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("meals.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    quantity: Mapped[float] = mapped_column(Float)
+    unit: Mapped[str] = mapped_column(String(20))
+    kcal: Mapped[float] = mapped_column(Float)
+    protein_g: Mapped[float] = mapped_column(Float, default=0)
+    carbs_g: Mapped[float] = mapped_column(Float, default=0)
+    fat_g: Mapped[float] = mapped_column(Float, default=0)
+
+
+class Exercise(Base):
+    __tablename__ = "exercises"
+    __table_args__ = (Index("ix_exercises_user_started", "user_id", "started_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    type: Mapped[str] = mapped_column(String(50))
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    minutes: Mapped[int] = mapped_column(Integer)
+    intensity: Mapped[str] = mapped_column(String(16))
+    steps: Mapped[int | None] = mapped_column(Integer)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Sleep(Base):
+    __tablename__ = "sleeps"
+    __table_args__ = (Index("ix_sleeps_user_started", "user_id", "started_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    ended_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    quality: Mapped[int] = mapped_column(Integer)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )

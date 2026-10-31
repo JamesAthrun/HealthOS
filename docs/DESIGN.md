@@ -212,9 +212,8 @@ DeepSeek API 是无状态的，模型不会记住任何内容。数字类的历�
 1. 停掉服务器上原来占用 80 端口的服务，并确认 80、443 端口都空闲：`sudo ss -lntp | grep -E ':(80|443) '` 没有输出。
 2. 安装 Docker 和 Docker Compose 插件，并创建 swap。
 3. 在服务器上放 `docker-compose.yml`、`.env`（包含数据库密码、DeepSeek Key、会话密钥）和前端静态文件。
-4. 拉取或导入已经构建好的 `api` 镜像，然后运行 `docker compose up -d`。
-5. 运行数据库迁移：`docker compose run --rm api alembic upgrade head`。
-6. 创建家人账号，帮他们在手机上安装根证书（见下文），再把 `https://<IP>` 发给他们。
+4. 拉取或导入已经构建好的 `api` 镜像，然后运行 `docker compose up -d`；一次性的 `migrate` 服务会先使用迁移角色完成升级，API 随后使用受 RLS 约束的运行时角色启动。
+5. 创建家人账号，帮他们在手机上安装根证书（见下文），再把 `https://<IP>` 发给他们。
 
 **HTTPS（自签证书）：**
 

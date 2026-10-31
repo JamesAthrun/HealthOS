@@ -1,0 +1,1405 @@
+openapi: 3.1.0
+info:
+  title: HealthOS API
+  description: HealthOS 家庭版后端 API。所有健康数据接口都使用 HttpOnly 会话 Cookie，并从认证主体派生所有者。
+  version: 0.2.0
+paths:
+  /api/auth/login:
+    post:
+      tags:
+      - account
+      summary: Login
+      operationId: login_api_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auth/logout:
+    post:
+      tags:
+      - account
+      summary: Logout
+      operationId: logout_api_auth_logout_post
+      responses:
+        '204':
+          description: Successful Response
+      security:
+      - SessionCookie: []
+  /api/me:
+    get:
+      tags:
+      - account
+      summary: Me
+      operationId: me_api_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOut'
+      security:
+      - SessionCookie: []
+  /api/me/password:
+    post:
+      tags:
+      - account
+      summary: Change Password
+      operationId: change_password_api_me_password_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordIn'
+        required: true
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/me/settings:
+    put:
+      tags:
+      - account
+      summary: Update Account Settings
+      operationId: update_account_settings_api_me_settings_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountSettingsIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/me/audit-events:
+    get:
+      tags:
+      - account
+      summary: Audit Events
+      operationId: audit_events_api_me_audit_events_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/AuditEventOut'
+                type: array
+                title: Response Audit Events Api Me Audit Events Get
+      security:
+      - SessionCookie: []
+  /api/me/audit-events/{event_id}:
+    get:
+      tags:
+      - account
+      summary: Audit Event
+      operationId: audit_event_api_me_audit_events__event_id__get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: event_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Event Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/profile:
+    get:
+      tags:
+      - profile
+      summary: Get Profile
+      operationId: get_profile_api_profile_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileOut'
+      security:
+      - SessionCookie: []
+    put:
+      tags:
+      - profile
+      summary: Put Profile
+      operationId: put_profile_api_profile_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/profile/kcal-reference:
+    get:
+      tags:
+      - profile
+      summary: Kcal Reference
+      operationId: kcal_reference_api_profile_kcal_reference_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KcalReferenceOut'
+      security:
+      - SessionCookie: []
+  /api/meals:
+    get:
+      tags:
+      - records
+      summary: List Meals
+      operationId: list_meals_api_meals_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/MealOut'
+                type: array
+                title: Response List Meals Api Meals Get
+      security:
+      - SessionCookie: []
+    post:
+      tags:
+      - records
+      summary: Create Meal
+      operationId: create_meal_api_meals_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/meals/{meal_id}:
+    get:
+      tags:
+      - records
+      summary: Get Meal
+      operationId: get_meal_api_meals__meal_id__get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: meal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Meal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - records
+      summary: Patch Meal
+      operationId: patch_meal_api_meals__meal_id__patch
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: meal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Meal Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealPatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - records
+      summary: Delete Meal
+      operationId: delete_meal_api_meals__meal_id__delete
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: meal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Meal Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/exercises:
+    get:
+      tags:
+      - records
+      summary: List Exercises
+      operationId: list_exercises_api_exercises_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ExerciseOut'
+                type: array
+                title: Response List Exercises Api Exercises Get
+      security:
+      - SessionCookie: []
+    post:
+      tags:
+      - records
+      summary: Create Exercise
+      operationId: create_exercise_api_exercises_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExerciseIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/exercises/{exercise_id}:
+    get:
+      tags:
+      - records
+      summary: Get Exercise
+      operationId: get_exercise_api_exercises__exercise_id__get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: exercise_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Exercise Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - records
+      summary: Patch Exercise
+      operationId: patch_exercise_api_exercises__exercise_id__patch
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: exercise_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Exercise Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExercisePatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - records
+      summary: Delete Exercise
+      operationId: delete_exercise_api_exercises__exercise_id__delete
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: exercise_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Exercise Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/sleeps:
+    get:
+      tags:
+      - records
+      summary: List Sleeps
+      operationId: list_sleeps_api_sleeps_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SleepOut'
+                type: array
+                title: Response List Sleeps Api Sleeps Get
+      security:
+      - SessionCookie: []
+    post:
+      tags:
+      - records
+      summary: Create Sleep
+      operationId: create_sleep_api_sleeps_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SleepIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SleepOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/sleeps/{sleep_id}:
+    get:
+      tags:
+      - records
+      summary: Get Sleep
+      operationId: get_sleep_api_sleeps__sleep_id__get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: sleep_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Sleep Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SleepOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - records
+      summary: Patch Sleep
+      operationId: patch_sleep_api_sleeps__sleep_id__patch
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: sleep_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Sleep Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SleepPatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SleepOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - records
+      summary: Delete Sleep
+      operationId: delete_sleep_api_sleeps__sleep_id__delete
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: sleep_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Sleep Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/health:
+    get:
+      summary: Health
+      operationId: health_api_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Health Api Health Get
+components:
+  schemas:
+    AccountSettingsIn:
+      properties:
+        display_name:
+          type: string
+          maxLength: 50
+          minLength: 1
+          title: Display Name
+        timezone:
+          type: string
+          maxLength: 64
+          minLength: 1
+          title: Timezone
+        locale:
+          type: string
+          maxLength: 16
+          pattern: ^[a-z]{2}(?:-[A-Z]{2})?$
+          title: Locale
+      additionalProperties: false
+      type: object
+      required:
+      - display_name
+      - timezone
+      - locale
+      title: AccountSettingsIn
+    AuditEventOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        event_type:
+          type: string
+          title: Event Type
+        outcome:
+          type: string
+          title: Outcome
+        ip_address:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ip Address
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - event_type
+      - outcome
+      - ip_address
+      - created_at
+      title: AuditEventOut
+    ChangePasswordIn:
+      properties:
+        current_password:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Current Password
+        new_password:
+          type: string
+          maxLength: 128
+          minLength: 8
+          title: New Password
+      type: object
+      required:
+      - current_password
+      - new_password
+      title: ChangePasswordIn
+    ExerciseIn:
+      properties:
+        type:
+          type: string
+          maxLength: 50
+          minLength: 1
+          title: Type
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+        minutes:
+          type: integer
+          maximum: 1440.0
+          minimum: 1.0
+          title: Minutes
+        intensity:
+          type: string
+          enum:
+          - low
+          - moderate
+          - high
+          title: Intensity
+        steps:
+          anyOf:
+          - type: integer
+            maximum: 200000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Steps
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      required:
+      - type
+      - started_at
+      - minutes
+      - intensity
+      title: ExerciseIn
+    ExerciseOut:
+      properties:
+        type:
+          type: string
+          maxLength: 50
+          minLength: 1
+          title: Type
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+        minutes:
+          type: integer
+          maximum: 1440.0
+          minimum: 1.0
+          title: Minutes
+        intensity:
+          type: string
+          enum:
+          - low
+          - moderate
+          - high
+          title: Intensity
+        steps:
+          anyOf:
+          - type: integer
+            maximum: 200000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Steps
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+        id:
+          type: string
+          format: uuid
+          title: Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - type
+      - started_at
+      - minutes
+      - intensity
+      - id
+      - created_at
+      - updated_at
+      title: ExerciseOut
+    ExercisePatch:
+      properties:
+        type:
+          anyOf:
+          - type: string
+            maxLength: 50
+            minLength: 1
+          - type: 'null'
+          title: Type
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        minutes:
+          anyOf:
+          - type: integer
+            maximum: 1440.0
+            minimum: 1.0
+          - type: 'null'
+          title: Minutes
+        intensity:
+          anyOf:
+          - type: string
+            enum:
+            - low
+            - moderate
+            - high
+          - type: 'null'
+          title: Intensity
+        steps:
+          anyOf:
+          - type: integer
+            maximum: 200000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Steps
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      title: ExercisePatch
+    FoodItemIn:
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Name
+        quantity:
+          type: number
+          maximum: 100000.0
+          exclusiveMinimum: 0.0
+          title: Quantity
+        unit:
+          type: string
+          maxLength: 20
+          minLength: 1
+          title: Unit
+        kcal:
+          type: number
+          maximum: 10000.0
+          minimum: 0.0
+          title: Kcal
+        protein_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Protein G
+          default: 0
+        carbs_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Carbs G
+          default: 0
+        fat_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Fat G
+          default: 0
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - quantity
+      - unit
+      - kcal
+      title: FoodItemIn
+    FoodItemOut:
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Name
+        quantity:
+          type: number
+          maximum: 100000.0
+          exclusiveMinimum: 0.0
+          title: Quantity
+        unit:
+          type: string
+          maxLength: 20
+          minLength: 1
+          title: Unit
+        kcal:
+          type: number
+          maximum: 10000.0
+          minimum: 0.0
+          title: Kcal
+        protein_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Protein G
+          default: 0
+        carbs_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Carbs G
+          default: 0
+        fat_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Fat G
+          default: 0
+        id:
+          type: string
+          format: uuid
+          title: Id
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - quantity
+      - unit
+      - kcal
+      - id
+      title: FoodItemOut
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    KcalReferenceOut:
+      properties:
+        maintenance_kcal:
+          type: integer
+          title: Maintenance Kcal
+        weight_loss_kcal:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Weight Loss Kcal
+        bmi:
+          type: number
+          title: Bmi
+        formula:
+          type: string
+          title: Formula
+          default: Mifflin-St Jeor
+        notice:
+          type: string
+          title: Notice
+          default: 仅供健康习惯参考，不是医疗建议
+      type: object
+      required:
+      - maintenance_kcal
+      - weight_loss_kcal
+      - bmi
+      title: KcalReferenceOut
+    LoginIn:
+      properties:
+        username:
+          type: string
+          maxLength: 32
+          minLength: 1
+          title: Username
+        password:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Password
+      type: object
+      required:
+      - username
+      - password
+      title: LoginIn
+    MealIn:
+      properties:
+        eaten_at:
+          type: string
+          format: date-time
+          title: Eaten At
+        meal_type:
+          type: string
+          enum:
+          - breakfast
+          - lunch
+          - dinner
+          - snack
+          title: Meal Type
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+        food_items:
+          items:
+            $ref: '#/components/schemas/FoodItemIn'
+          type: array
+          maxItems: 50
+          minItems: 1
+          title: Food Items
+      additionalProperties: false
+      type: object
+      required:
+      - eaten_at
+      - meal_type
+      - food_items
+      title: MealIn
+    MealOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        eaten_at:
+          type: string
+          format: date-time
+          title: Eaten At
+        meal_type:
+          type: string
+          title: Meal Type
+        status:
+          type: string
+          title: Status
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+        food_items:
+          items:
+            $ref: '#/components/schemas/FoodItemOut'
+          type: array
+          title: Food Items
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - eaten_at
+      - meal_type
+      - status
+      - notes
+      - food_items
+      - created_at
+      - updated_at
+      title: MealOut
+    MealPatch:
+      properties:
+        eaten_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Eaten At
+        meal_type:
+          anyOf:
+          - type: string
+            enum:
+            - breakfast
+            - lunch
+            - dinner
+            - snack
+          - type: 'null'
+          title: Meal Type
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+        food_items:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/FoodItemIn'
+            type: array
+            maxItems: 50
+            minItems: 1
+          - type: 'null'
+          title: Food Items
+      additionalProperties: false
+      type: object
+      title: MealPatch
+    ProfileIn:
+      properties:
+        birth_year:
+          anyOf:
+          - type: integer
+            minimum: 1900.0
+          - type: 'null'
+          title: Birth Year
+        sex:
+          anyOf:
+          - type: string
+            enum:
+            - male
+            - female
+          - type: 'null'
+          title: Sex
+        height_cm:
+          anyOf:
+          - type: number
+            maximum: 250.0
+            minimum: 50.0
+          - type: 'null'
+          title: Height Cm
+        weight_kg:
+          anyOf:
+          - type: number
+            maximum: 500.0
+            minimum: 20.0
+          - type: 'null'
+          title: Weight Kg
+        activity_level:
+          anyOf:
+          - type: string
+            enum:
+            - sedentary
+            - light
+            - moderate
+            - active
+          - type: 'null'
+          title: Activity Level
+        dietary_preferences:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Dietary Preferences
+        allergies:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Allergies
+        daily_kcal_target:
+          anyOf:
+          - type: integer
+            maximum: 10000.0
+            minimum: 1000.0
+          - type: 'null'
+          title: Daily Kcal Target
+      additionalProperties: false
+      type: object
+      title: ProfileIn
+    ProfileOut:
+      properties:
+        birth_year:
+          anyOf:
+          - type: integer
+            minimum: 1900.0
+          - type: 'null'
+          title: Birth Year
+        sex:
+          anyOf:
+          - type: string
+            enum:
+            - male
+            - female
+          - type: 'null'
+          title: Sex
+        height_cm:
+          anyOf:
+          - type: number
+            maximum: 250.0
+            minimum: 50.0
+          - type: 'null'
+          title: Height Cm
+        weight_kg:
+          anyOf:
+          - type: number
+            maximum: 500.0
+            minimum: 20.0
+          - type: 'null'
+          title: Weight Kg
+        activity_level:
+          anyOf:
+          - type: string
+            enum:
+            - sedentary
+            - light
+            - moderate
+            - active
+          - type: 'null'
+          title: Activity Level
+        dietary_preferences:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Dietary Preferences
+        allergies:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Allergies
+        daily_kcal_target:
+          anyOf:
+          - type: integer
+            maximum: 10000.0
+            minimum: 1000.0
+          - type: 'null'
+          title: Daily Kcal Target
+        user_id:
+          type: string
+          format: uuid
+          title: User Id
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - user_id
+      - updated_at
+      title: ProfileOut
+    SleepIn:
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+        ended_at:
+          type: string
+          format: date-time
+          title: Ended At
+        quality:
+          type: integer
+          maximum: 5.0
+          minimum: 1.0
+          title: Quality
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      required:
+      - started_at
+      - ended_at
+      - quality
+      title: SleepIn
+    SleepOut:
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+        ended_at:
+          type: string
+          format: date-time
+          title: Ended At
+        quality:
+          type: integer
+          maximum: 5.0
+          minimum: 1.0
+          title: Quality
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+        id:
+          type: string
+          format: uuid
+          title: Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - started_at
+      - ended_at
+      - quality
+      - id
+      - created_at
+      - updated_at
+      title: SleepOut
+    SleepPatch:
+      properties:
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        ended_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Ended At
+        quality:
+          anyOf:
+          - type: integer
+            maximum: 5.0
+            minimum: 1.0
+          - type: 'null'
+          title: Quality
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      title: SleepPatch
+    UserOut:
+      properties:
+        id:
+          type: string
+          title: Id
+        username:
+          type: string
+          title: Username
+        display_name:
+          type: string
+          title: Display Name
+        is_admin:
+          type: boolean
+          title: Is Admin
+        timezone:
+          type: string
+          title: Timezone
+        locale:
+          type: string
+          title: Locale
+      type: object
+      required:
+      - id
+      - username
+      - display_name
+      - is_admin
+      - timezone
+      - locale
+      title: UserOut
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    SessionCookie:
+      type: apiKey
+      description: 登录成功后由服务端设置的 HttpOnly 会话 Cookie。
+      in: cookie
+      name: healthos_session

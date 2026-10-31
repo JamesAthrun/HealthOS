@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
-from app import auth
+from app import auth, profile, records
 from app.config import get_settings
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -23,9 +23,18 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-app = FastAPI(title="HealthOS", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(
+    title="HealthOS API",
+    version="0.2.0",
+    description="HealthOS 家庭版后端 API。所有健康数据接口都使用 HttpOnly 会话 Cookie，并从认证主体派生所有者。",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 app.add_middleware(OriginCheckMiddleware)
 app.include_router(auth.router)
+app.include_router(profile.router)
+app.include_router(records.router)
 
 
 @app.get("/api/health")

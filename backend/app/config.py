@@ -25,7 +25,12 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     session_days: int = 30
     # 允许发起写请求的来源（逗号分隔），用于 CSRF 防护
-    allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000", "http://localhost:8080"]
+    allowed_origins: Annotated[list[str], NoDecode] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ]
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
