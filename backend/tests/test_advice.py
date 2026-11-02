@@ -164,6 +164,7 @@ def test_planning_consent_is_separate_and_advice_flow(monkeypatch) -> None:
     assert client.put("/api/planning-consent").json()["granted"] is True
     assert client.get("/api/ai-consent").json()["granted"] is False
 
+    monkeypatch.setattr(get_settings(), "deepseek_api_key", "test")
     monkeypatch.setattr(advice_service, "generate_advice", lambda _context, _settings: _generated())
     response = client.post("/api/advice/daily", json={"for_date": "2026-11-02"})
     assert response.status_code == 202
@@ -316,6 +317,92 @@ def test_connection_error_becomes_provider_error(monkeypatch) -> None:
             {"observations": []},
             Settings(deepseek_api_key="test", deepseek_timeout_seconds=0.1),
         )
+
+
+def _safe_check(summary: str, action: str = "先记录感受。") -> None:
+    _validate_safety(
+        AdviceContent(
+            summary=summary,
+            actions=[
+                AdviceAction(
+                    category="general",
+                    action=action,
+                    rationale="资料有限。",
+                    evidence_refs=[],
+                    confidence="low",
+                )
+            ],
+        ),
+        set(),
+    )
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        "不建议断食，保持规律三餐。",
+        "如有不适请咨询医生诊断。",
+        "这不是医疗诊断，只是习惯参考。",
+        "请勿擅自停药。",
+        "This is not a diagnosis; avoid fasting.",
+    ],
+)
+def test_safety_allows_negated_or_referral_phrases(summary: str) -> None:
+    _safe_check(summary)
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        "不舒服时可以服用药物。",
+        "不要错过服用保健品。",
+        "建议尝试间歇断食。",
+    ],
+)
+def test_safety_still_blocks_unsafe_phrases(summary: str) -> None:
+    with pytest.raises(AdviceProviderError, match="AI_UNSAFE_RESPONSE"):
+        _safe_check(summary)
+
+
+def test_invalid_output_is_retried_once(monkeypatch) -> None:
+    unsafe = {
+        "summary": "建议服用保健品。",
+        "actions": [
+            {
+                "category": "general",
+                "action": "先记录感受。",
+                "rationale": "资料有限。",
+                "evidence_refs": [],
+                "confidence": "low",
+            }
+        ],
+        "limitations": [],
+    }
+    safe = {**unsafe, "summary": "先从一个小行动开始。"}
+    replies = [unsafe, safe]
+    calls = []
+
+    def fake_post(_self, url, **_kwargs):
+        calls.append(url)
+        body = {"choices": [{"message": {"content": json.dumps(replies[len(calls) - 1], ensure_ascii=False)}}]}
+        return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    result = generate_advice(
+        {"observations": []},
+        Settings(deepseek_api_key="test", deepseek_timeout_seconds=0.1),
+    )
+    assert len(calls) == 2
+    assert result.content.summary == "先从一个小行动开始。"
+
+    replies[1] = unsafe
+    calls.clear()
+    with pytest.raises(AdviceProviderError, match="AI_UNSAFE_RESPONSE"):
+        generate_advice(
+            {"observations": []},
+            Settings(deepseek_api_key="test", deepseek_timeout_seconds=0.1),
+        )
+    assert len(calls) == 2
 
 
 def test_unexpected_background_error_is_persisted(monkeypatch) -> None:

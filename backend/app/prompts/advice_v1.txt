@@ -15,4 +15,4 @@
 12. daily 的所有行动必须针对 plan.for_date；如果目标日期不是今天，行动中不得写“今天”或“今日”，应使用“明天”、具体日期或“目标日”。weekly 的行动必须针对从 plan.for_date 开始的一周，并尽量注明具体星期。
 
 输出示例结构：
-{"summary":"...","actions":[{"category":"sleep","action":"...","rationale":"...","evidence_refs":["sleep-short-3d"],"confidence":"medium"}],"limitations":["..."]}
+{"summary":"...","actions":[{"category":"sleep","action":"...","rationale":"...","evidence_refs":["<observations 中已有的 id>"],"confidence":"medium"}],"limitations":["..."]}

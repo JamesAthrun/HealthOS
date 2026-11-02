@@ -1,6 +1,8 @@
 import json
 import logging
+import re
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -89,6 +91,26 @@ UNSAFE_TERMS = {
     "dosage",
     "fasting",
 }
+
+# 否定、免责声明或转介就医的语境中出现敏感词是安全的，例如“不建议断食”“请咨询医生诊断”。
+_NEGATIONS = (
+    "不建议", "不需要", "不能替代", "不能代替", "不构成", "不涉及",
+    "不要", "不宜", "不必", "无需", "避免", "切勿", "请勿", "不是", "并非", "不作", "不做",
+)
+_FILLERS = ("进行", "采用", "使用", "尝试", "自行", "随意", "擅自", "盲目", "医疗", "任何")
+_REFERRALS = ("医疗专业人员", "专业人员", "专业人士", "医疗机构", "医生", "医师")
+
+
+def _alternation(words: Iterable[str]) -> str:
+    return "|".join(re.escape(word) for word in sorted(words, key=len, reverse=True))
+
+
+_TERMS_RE = _alternation(UNSAFE_TERMS)
+_SAFE_CONTEXT_RE = re.compile(
+    rf"(?:(?:{_alternation(_NEGATIONS)})(?:{_alternation(_FILLERS)})?|(?:{_alternation(_REFERRALS)})的?)"
+    rf"(?:{_TERMS_RE})"
+    rf"|\b(?:avoid|no|not|never|without)\s+(?:a\s+|any\s+)?(?:{_TERMS_RE})"
+)
 
 
 def _average(values: list[float | int]) -> float | None:
@@ -324,6 +346,7 @@ def _validate_safety(content: AdviceContent, allowed_refs: set[str]) -> AdviceCo
         [content.summary, *content.limitations]
         + [f"{item.action} {item.rationale}" for item in content.actions]
     ).lower()
+    text = _SAFE_CONTEXT_RE.sub(" ", text)
     if any(term in text for term in UNSAFE_TERMS):
         raise AdviceProviderError("AI_UNSAFE_RESPONSE")
     for action in content.actions:
@@ -398,8 +421,9 @@ def generate_advice(context: dict[str, object], settings: Settings) -> ProviderR
             last_code = f"AI_HTTP_{exc.response.status_code}"
             if exc.response.status_code in {400, 401, 403}:
                 break
-        except AdviceProviderError:
-            raise
+        except AdviceProviderError as exc:
+            # 输出校验失败（不安全、证据无效、日期不符）通常是偶发的，换一次生成再判断
+            last_code = exc.code
         except (KeyError, TypeError, json.JSONDecodeError, ValidationError):
             last_code = "AI_INVALID_RESPONSE"
     raise AdviceProviderError(last_code)
@@ -410,26 +434,41 @@ def run_advice_job(advice_id: object, user_id: object) -> None:
     from app.config import get_settings
     from app.db import SessionLocal
 
-    with SessionLocal() as db:
+    def load_advice(db: Session) -> Advice | None:
         set_tenant_context(db, user_id)  # type: ignore[arg-type]
-        advice = db.scalar(
+        return db.scalar(
             select(Advice).where(Advice.id == advice_id, Advice.user_id == user_id)
         )
+
+    # 先读出上下文并释放连接，避免在等待 AI 响应期间长时间占用数据库连接
+    with SessionLocal() as db:
+        advice = load_advice(db)
         if advice is None:
             return
-        try:
-            result = generate_advice(json.loads(advice.context_json), get_settings())
+        context = json.loads(advice.context_json)
+
+    result: ProviderResult | None = None
+    error_code: str | None = None
+    try:
+        result = generate_advice(context, get_settings())
+    except AdviceProviderError as exc:
+        error_code = exc.code
+    except Exception:
+        logger.exception("Advice background job failed", extra={"advice_id": str(advice_id)})
+        error_code = "AI_INTERNAL_ERROR"
+
+    with SessionLocal() as db:
+        advice = load_advice(db)
+        if advice is None:
+            return
+        if result is not None:
             advice.status = "succeeded"
             advice.content_json = result.content.model_dump_json()
             advice.latency_ms = result.latency_ms
             advice.prompt_tokens = result.prompt_tokens
             advice.completion_tokens = result.completion_tokens
             advice.error_code = None
-        except AdviceProviderError as exc:
+        else:
             advice.status = "failed"
-            advice.error_code = exc.code
-        except Exception:
-            logger.exception("Advice background job failed", extra={"advice_id": str(advice.id)})
-            advice.status = "failed"
-            advice.error_code = "AI_INTERNAL_ERROR"
+            advice.error_code = error_code
         db.commit()
