@@ -15,6 +15,8 @@ const EVENT_LABELS: Record<string, string> = {
   ai_consent_granted: "同意 AI 图片处理",
   ai_consent_revoked: "撤回 AI 图片处理同意",
   meal_ai_confirmed: "确认 AI 饮食草稿",
+  planning_consent_granted: "同意 AI 健康规划",
+  planning_consent_revoked: "撤回 AI 健康规划同意",
 };
 
 type Consent = { granted: boolean; granted_at: string | null };
@@ -32,15 +34,21 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
   const [locale, setLocale] = useState(initialMe.locale);
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [consent, setConsent] = useState<Consent | null>(null);
+  const [planningConsent, setPlanningConsent] = useState<Consent | null>(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    Promise.all([api<AuditEvent[]>("/me/audit-events"), api<Consent>("/ai-consent")])
-      .then(([auditEvents, aiConsent]) => {
+    Promise.all([
+      api<AuditEvent[]>("/me/audit-events"),
+      api<Consent>("/ai-consent"),
+      api<Consent>("/planning-consent"),
+    ])
+      .then(([auditEvents, aiConsent, nextPlanningConsent]) => {
         setEvents(auditEvents);
         setConsent(aiConsent);
+        setPlanningConsent(nextPlanningConsent);
       })
       .catch(() => setEvents([]));
   }, []);
@@ -49,6 +57,16 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
     setError("");
     try {
       setConsent(await api<Consent>("/ai-consent", { method: "DELETE" }));
+      setEvents(await api<AuditEvent[]>("/me/audit-events"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "撤回失败，请稍后重试");
+    }
+  }
+
+  async function revokePlanningConsent() {
+    setError("");
+    try {
+      setPlanningConsent(await api<Consent>("/planning-consent", { method: "DELETE" }));
       setEvents(await api<AuditEvent[]>("/me/audit-events"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "撤回失败，请稍后重试");
@@ -116,6 +134,18 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
           </>
         ) : (
           <p>当前未同意 AI 图片处理。手工饮食记录不受影响。</p>
+        )}
+      </section>
+
+      <section className="card stack">
+        <h1>AI 健康规划</h1>
+        {planningConsent?.granted ? (
+          <>
+            <p>已同意在你主动生成规划时，将近 30 天聚合健康摘要、“关于我”、最近建议，以及你填写的评价和反馈原因发送给 DeepSeek。用户名、照片和饮食、运动、睡眠的原始备注不会发送。</p>
+            <button type="button" className="secondary" onClick={revokePlanningConsent}>撤回 AI 健康规划同意</button>
+          </>
+        ) : (
+          <p>当前未同意 AI 健康规划。你仍可正常记录和查看看板。</p>
         )}
       </section>
 

@@ -227,6 +227,38 @@ button.danger {
   border-radius: 8px;
 }
 
+.advice-action {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfdfc;
+}
+
+.advice-action p {
+  margin: 6px 0;
+}
+
+.advice-action small {
+  color: var(--muted);
+}
+
+.feedback-box {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.checkbox-label input {
+  width: auto;
+  margin: 0;
+}
+
 .muted {
   color: var(--muted);
   font-size: 14px;

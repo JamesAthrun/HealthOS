@@ -50,6 +50,7 @@ class User(Base):
     failed_login_count: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
     ai_consent_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    planning_consent_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
 
 
@@ -207,6 +208,61 @@ class MealAnalysis(Base):
     prompt_version: Mapped[str] = mapped_column(String(32))
     result_json: Mapped[str | None] = mapped_column(Text)
     error_code: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class UserNote(Base):
+    __tablename__ = "user_notes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "source_advice_id", name="uq_user_notes_source_advice"),
+        Index("ix_user_notes_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    content: Mapped[str] = mapped_column(String(100))
+    category: Mapped[str] = mapped_column(String(16))
+    source_advice_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("advice.id", ondelete="CASCADE"), index=True
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Advice(Base):
+    __tablename__ = "advice"
+    __table_args__ = (
+        Index("ix_advice_user_kind_date", "user_id", "kind", "for_date"),
+        Index("ix_advice_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(16))
+    for_date: Mapped[datetime] = mapped_column(UTCDateTime)
+    status: Mapped[str] = mapped_column(String(16))
+    context_json: Mapped[str] = mapped_column(Text)
+    content_json: Mapped[str | None] = mapped_column(Text)
+    observation_ids_json: Mapped[str] = mapped_column(Text, default="[]")
+    feedback: Mapped[str | None] = mapped_column(String(24))
+    feedback_reason: Mapped[str | None] = mapped_column(String(500))
+    provider: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(64))
+    prompt_version: Mapped[str] = mapped_column(String(32))
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    prompt_tokens: Mapped[int | None] = mapped_column(Integer)
+    completion_tokens: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, server_default=func.now(), onupdate=func.now()

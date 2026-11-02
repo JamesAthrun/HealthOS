@@ -90,6 +90,7 @@ export default function HomePage() {
               </article>
             </div>
             <div className="quick-actions" aria-label="快捷记录">
+              <Link href="/advice/">健康规划</Link>
               <Link href="/meal-photo/">拍照识别</Link>
               <Link href="/meals/">记饮食</Link>
               <Link href="/exercises/">记运动</Link>
@@ -129,6 +130,7 @@ export default function HomePage() {
         <h2>全部功能</h2>
         <Link href="/profile/">健康档案与热量参考值</Link>
         <Link href="/records/">手工健康记录</Link>
+        <Link href="/notes/">关于我</Link>
         <Link href="/settings/">账号设置与安全记录</Link>
         <Link href="/password/">修改密码</Link>
       </nav>

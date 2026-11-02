@@ -852,6 +852,288 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/planning-consent:
+    get:
+      tags:
+      - advice
+      summary: Get Planning Consent
+      operationId: get_planning_consent_api_planning_consent_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentOut'
+      security:
+      - SessionCookie: []
+    put:
+      tags:
+      - advice
+      summary: Grant Planning Consent
+      operationId: grant_planning_consent_api_planning_consent_put
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentOut'
+      security:
+      - SessionCookie: []
+    delete:
+      tags:
+      - advice
+      summary: Revoke Planning Consent
+      operationId: revoke_planning_consent_api_planning_consent_delete
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentOut'
+      security:
+      - SessionCookie: []
+  /api/notes:
+    get:
+      tags:
+      - advice
+      summary: List Notes
+      operationId: list_notes_api_notes_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/NoteOut'
+                type: array
+                title: Response List Notes Api Notes Get
+      security:
+      - SessionCookie: []
+    post:
+      tags:
+      - advice
+      summary: Create Note
+      operationId: create_note_api_notes_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/notes/{note_id}:
+    patch:
+      tags:
+      - advice
+      summary: Patch Note
+      operationId: patch_note_api_notes__note_id__patch
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: note_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Note Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotePatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - advice
+      summary: Delete Note
+      operationId: delete_note_api_notes__note_id__delete
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: note_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Note Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/advice/daily:
+    post:
+      tags:
+      - advice
+      summary: Create Daily Advice
+      operationId: create_daily_advice_api_advice_daily_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateAdviceIn'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdviceOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/advice/weekly:
+    post:
+      tags:
+      - advice
+      summary: Create Weekly Advice
+      operationId: create_weekly_advice_api_advice_weekly_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateAdviceIn'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdviceOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/advice:
+    get:
+      tags:
+      - advice
+      summary: List Advice
+      operationId: list_advice_api_advice_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/AdviceOut'
+                type: array
+                title: Response List Advice Api Advice Get
+      security:
+      - SessionCookie: []
+  /api/advice/{advice_id}:
+    get:
+      tags:
+      - advice
+      summary: Get Advice
+      operationId: get_advice_api_advice__advice_id__get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: advice_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Advice Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdviceOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/advice/{advice_id}/feedback:
+    post:
+      tags:
+      - advice
+      summary: Give Feedback
+      operationId: give_feedback_api_advice__advice_id__feedback_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: advice_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Advice Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdviceOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/health:
     get:
       summary: Health
@@ -892,6 +1174,142 @@ components:
       - timezone
       - locale
       title: AccountSettingsIn
+    AdviceAction:
+      properties:
+        category:
+          type: string
+          enum:
+          - diet
+          - exercise
+          - sleep
+          - general
+          title: Category
+        action:
+          type: string
+          maxLength: 300
+          minLength: 1
+          title: Action
+        rationale:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Rationale
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          maxItems: 8
+          title: Evidence Refs
+        confidence:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+          title: Confidence
+      additionalProperties: false
+      type: object
+      required:
+      - category
+      - action
+      - rationale
+      - confidence
+      title: AdviceAction
+    AdviceContent:
+      properties:
+        summary:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Summary
+        actions:
+          items:
+            $ref: '#/components/schemas/AdviceAction'
+          type: array
+          maxItems: 5
+          minItems: 1
+          title: Actions
+        limitations:
+          items:
+            type: string
+          type: array
+          maxItems: 8
+          title: Limitations
+      additionalProperties: false
+      type: object
+      required:
+      - summary
+      - actions
+      title: AdviceContent
+    AdviceOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          type: string
+          enum:
+          - daily
+          - weekly
+          title: Kind
+        for_date:
+          type: string
+          format: date
+          title: For Date
+        status:
+          type: string
+          enum:
+          - pending
+          - succeeded
+          - failed
+          title: Status
+        content:
+          anyOf:
+          - $ref: '#/components/schemas/AdviceContent'
+          - type: 'null'
+        observations:
+          items:
+            type: string
+          type: array
+          title: Observations
+        feedback:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Feedback
+        feedback_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Feedback Reason
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - kind
+      - for_date
+      - status
+      - content
+      - observations
+      - feedback
+      - feedback_reason
+      - error_code
+      - created_at
+      - updated_at
+      title: AdviceOut
     AuditEventOut:
       properties:
         id:
@@ -1152,6 +1570,32 @@ components:
       additionalProperties: false
       type: object
       title: ExercisePatch
+    FeedbackIn:
+      properties:
+        feedback:
+          type: string
+          enum:
+          - useful
+          - not_applicable
+          - unsafe
+          title: Feedback
+        reason:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Reason
+          description: 反馈原因；当 remember=true 时必填且最多 100 个字符。
+        remember:
+          type: boolean
+          title: Remember
+          description: 仅适用于 not_applicable；保存为‘关于我’记忆，重复提交会更新同一条。
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - feedback
+      title: FeedbackIn
     FoodItemIn:
       properties:
         name:
@@ -1253,6 +1697,17 @@ components:
       - kcal
       - id
       title: FoodItemOut
+    GenerateAdviceIn:
+      properties:
+        for_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: For Date
+      additionalProperties: false
+      type: object
+      title: GenerateAdviceIn
     HTTPValidationError:
       properties:
         detail:
@@ -1532,6 +1987,101 @@ components:
       - food_items
       - overall_confidence
       title: MealRecognition
+    NoteIn:
+      properties:
+        content:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Content
+        category:
+          type: string
+          enum:
+          - limitation
+          - preference
+          - tried
+          - temporary
+          title: Category
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      additionalProperties: false
+      type: object
+      required:
+      - content
+      - category
+      title: NoteIn
+    NoteOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        content:
+          type: string
+          title: Content
+        category:
+          type: string
+          enum:
+          - limitation
+          - preference
+          - tried
+          - temporary
+          title: Category
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - content
+      - category
+      - expires_at
+      - created_at
+      - updated_at
+      title: NoteOut
+    NotePatch:
+      properties:
+        content:
+          anyOf:
+          - type: string
+            maxLength: 100
+            minLength: 1
+          - type: 'null'
+          title: Content
+        category:
+          anyOf:
+          - type: string
+            enum:
+            - limitation
+            - preference
+            - tried
+            - temporary
+          - type: 'null'
+          title: Category
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      additionalProperties: false
+      type: object
+      title: NotePatch
     ProfileIn:
       properties:
         birth_year:
