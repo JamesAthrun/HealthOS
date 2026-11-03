@@ -10,7 +10,7 @@ type Profile = {
   birth_year: number | null;
   sex: "male" | "female" | null;
   height_cm: number | null;
-  weight_kg: number | null;
+  target_weight_kg: number | null;
   activity_level: "sedentary" | "light" | "moderate" | "active" | null;
   dietary_preferences: string | null;
   allergies: string | null;
@@ -29,7 +29,7 @@ const EMPTY: Record<keyof Profile, string> = {
   birth_year: "",
   sex: "",
   height_cm: "",
-  weight_kg: "",
+  target_weight_kg: "",
   activity_level: "",
   dietary_preferences: "",
   allergies: "",
@@ -44,14 +44,16 @@ export default function ProfilePage() {
 
 function ProfileForm({ me }: { me: Me }) {
   const [form, setForm] = useState({ ...EMPTY });
+  const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [reference, setReference] = useState<KcalReference | null>(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    api<Profile>("/profile")
+    api<Profile & { weight_kg: number | null }>("/profile")
       .then((profile) => {
+        setCurrentWeight(profile.weight_kg);
         setForm(
           Object.fromEntries(
             Object.entries(profile)
@@ -82,7 +84,7 @@ function ProfileForm({ me }: { me: Me }) {
           birth_year: numberOrNull(form.birth_year),
           sex: form.sex || null,
           height_cm: numberOrNull(form.height_cm),
-          weight_kg: numberOrNull(form.weight_kg),
+          target_weight_kg: numberOrNull(form.target_weight_kg),
           activity_level: form.activity_level || null,
           dietary_preferences: form.dietary_preferences || null,
           allergies: form.allergies || null,
@@ -124,9 +126,14 @@ function ProfileForm({ me }: { me: Me }) {
         身高（厘米）
         <input type="number" min="50" max="250" step="0.1" value={form.height_cm} onChange={(e) => set("height_cm", e.target.value)} />
       </label>
+      <div className="reference">
+        <strong>当前体重：{currentWeight === null ? "尚未记录" : `${currentWeight} kg`}</strong>
+        <p>体重按天记录，热量参考值使用最新一条。</p>
+        <Link href="/weights/">记录体重 / 查看趋势</Link>
+      </div>
       <label>
-        体重（公斤）
-        <input type="number" min="20" max="500" step="0.1" value={form.weight_kg} onChange={(e) => set("weight_kg", e.target.value)} />
+        目标体重（公斤，可选）
+        <input type="number" min="20" max="500" step="0.1" value={form.target_weight_kg} onChange={(e) => set("target_weight_kg", e.target.value)} />
       </label>
       <label>
         活动水平

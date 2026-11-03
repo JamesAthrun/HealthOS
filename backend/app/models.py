@@ -1,7 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -87,7 +88,9 @@ class Profile(Base):
     birth_year: Mapped[int | None] = mapped_column(Integer)
     sex: Mapped[str | None] = mapped_column(String(16))
     height_cm: Mapped[float | None] = mapped_column(Float)
+    # 等于最新一条 weight_logs，由体重接口同步；热量参考值直接读取
     weight_kg: Mapped[float | None] = mapped_column(Float)
+    target_weight_kg: Mapped[float | None] = mapped_column(Float)
     activity_level: Mapped[str | None] = mapped_column(String(16))
     dietary_preferences: Mapped[str | None] = mapped_column(Text)
     allergies: Mapped[str | None] = mapped_column(Text)
@@ -162,6 +165,28 @@ class Sleep(Base):
     ended_at: Mapped[datetime] = mapped_column(UTCDateTime)
     quality: Mapped[int] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class WeightLog(Base):
+    __tablename__ = "weight_logs"
+    __table_args__ = (
+        UniqueConstraint("user_id", "measured_on", name="uq_weight_logs_user_day"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    # 用户时区下的本地日期
+    measured_on: Mapped[date] = mapped_column(Date)
+    weight_kg: Mapped[float] = mapped_column(Float)
+    waist_cm: Mapped[float | None] = mapped_column(Float)
+    body_fat_pct: Mapped[float | None] = mapped_column(Float)
+    notes: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, server_default=func.now(), onupdate=func.now()

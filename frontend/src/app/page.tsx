@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
-import type { TodayDashboard, TrendDashboard } from "@/lib/health";
+import { signedKg, type TodayDashboard, type TrendDashboard, type WeightSummary } from "@/lib/health";
 import { useMe } from "@/lib/useMe";
 
 export default function HomePage() {
@@ -15,7 +15,14 @@ export default function HomePage() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [dashboard, setDashboard] = useState<TodayDashboard | null>(null);
   const [trends, setTrends] = useState<TrendDashboard | null>(null);
+  const [weight, setWeight] = useState<WeightSummary | null>(null);
   const [dashboardError, setDashboardError] = useState("");
+
+  useEffect(() => {
+    if (!me) return;
+    // 体重卡片是附加信息，加载失败不影响看板
+    api<WeightSummary>("/weights/summary").then(setWeight).catch(() => setWeight(null));
+  }, [me]);
 
   useEffect(() => {
     if (!me) return;
@@ -88,6 +95,25 @@ export default function HomePage() {
                 <strong>{dashboard.summary.meal_count} <small>餐</small></strong>
                 <small>蛋白质 {dashboard.summary.protein_g} g</small>
               </article>
+              <Link className="metric" href="/weights/">
+                <span>体重</span>
+                {weight?.current ? (
+                  <>
+                    <strong>{weight.current.weight_kg} <small>kg</small></strong>
+                    <small>
+                      {weight.change_kg !== null && weight.initial?.date !== weight.current.date
+                        ? `比初始 ${signedKg(weight.change_kg)} kg`
+                        : `记录于 ${weight.current.date}`}
+                      {weight.to_target_kg !== null && ` · 距目标 ${signedKg(weight.to_target_kg)}`}
+                    </small>
+                  </>
+                ) : (
+                  <>
+                    <strong>—</strong>
+                    <small>点此记录体重</small>
+                  </>
+                )}
+              </Link>
             </div>
             <div className="quick-actions" aria-label="快捷记录">
               <Link href="/advice/">健康规划</Link>
@@ -95,6 +121,7 @@ export default function HomePage() {
               <Link href="/meals/">记饮食</Link>
               <Link href="/exercises/">记运动</Link>
               <Link href="/sleeps/">记睡眠</Link>
+              <Link href="/weights/">记体重</Link>
             </div>
           </>
         )}

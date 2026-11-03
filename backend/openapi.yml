@@ -1142,6 +1142,168 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/weights:
+    get:
+      tags:
+      - weights
+      summary: List Weights
+      operationId: list_weights_api_weights_get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 366
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WeightOut'
+                title: Response List Weights Api Weights Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - weights
+      summary: Create Or Replace Weight
+      operationId: create_or_replace_weight_api_weights_post
+      security:
+      - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeightIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/weights/summary:
+    get:
+      tags:
+      - weights
+      summary: Weights Summary
+      operationId: weights_summary_api_weights_summary_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightSummary'
+      security:
+      - SessionCookie: []
+  /api/weights/{weight_id}:
+    get:
+      tags:
+      - weights
+      summary: Get Weight
+      operationId: get_weight_api_weights__weight_id__get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: weight_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Weight Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - weights
+      summary: Patch Weight
+      operationId: patch_weight_api_weights__weight_id__patch
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: weight_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Weight Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeightPatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - weights
+      summary: Delete Weight
+      operationId: delete_weight_api_weights__weight_id__delete
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: weight_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Weight Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/health:
     get:
       summary: Health
@@ -2130,6 +2292,13 @@ components:
             minimum: 20.0
           - type: 'null'
           title: Weight Kg
+        target_weight_kg:
+          anyOf:
+          - type: number
+            maximum: 500.0
+            minimum: 20.0
+          - type: 'null'
+          title: Target Weight Kg
         activity_level:
           anyOf:
           - type: string
@@ -2192,6 +2361,13 @@ components:
             minimum: 20.0
           - type: 'null'
           title: Weight Kg
+        target_weight_kg:
+          anyOf:
+          - type: number
+            maximum: 500.0
+            minimum: 20.0
+          - type: 'null'
+          title: Target Weight Kg
         activity_level:
           anyOf:
           - type: string
@@ -2438,6 +2614,24 @@ components:
       - to_date
       - days
       title: TrendDashboard
+    TrendPoint:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        weight_kg:
+          type: number
+          title: Weight Kg
+        avg_7d_kg:
+          type: number
+          title: Avg 7D Kg
+      type: object
+      required:
+      - date
+      - weight_kg
+      - avg_7d_kg
+      title: TrendPoint
     UserOut:
       properties:
         id:
@@ -2493,6 +2687,205 @@ components:
       - msg
       - type
       title: ValidationError
+    WeightIn:
+      properties:
+        measured_on:
+          type: string
+          format: date
+          title: Measured On
+        weight_kg:
+          type: number
+          maximum: 500.0
+          minimum: 20.0
+          title: Weight Kg
+        waist_cm:
+          anyOf:
+          - type: number
+            maximum: 250.0
+            minimum: 30.0
+          - type: 'null'
+          title: Waist Cm
+        body_fat_pct:
+          anyOf:
+          - type: number
+            maximum: 75.0
+            minimum: 2.0
+          - type: 'null'
+          title: Body Fat Pct
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      required:
+      - measured_on
+      - weight_kg
+      title: WeightIn
+    WeightOut:
+      properties:
+        measured_on:
+          type: string
+          format: date
+          title: Measured On
+        weight_kg:
+          type: number
+          maximum: 500.0
+          minimum: 20.0
+          title: Weight Kg
+        waist_cm:
+          anyOf:
+          - type: number
+            maximum: 250.0
+            minimum: 30.0
+          - type: 'null'
+          title: Waist Cm
+        body_fat_pct:
+          anyOf:
+          - type: number
+            maximum: 75.0
+            minimum: 2.0
+          - type: 'null'
+          title: Body Fat Pct
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Notes
+        id:
+          type: string
+          format: uuid
+          title: Id
+        warning:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Warning
+      additionalProperties: false
+      type: object
+      required:
+      - measured_on
+      - weight_kg
+      - id
+      title: WeightOut
+    WeightPatch:
+      properties:
+        measured_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Measured On
+        weight_kg:
+          anyOf:
+          - type: number
+            maximum: 500.0
+            minimum: 20.0
+          - type: 'null'
+          title: Weight Kg
+        waist_cm:
+          anyOf:
+          - type: number
+            maximum: 250.0
+            minimum: 30.0
+          - type: 'null'
+          title: Waist Cm
+        body_fat_pct:
+          anyOf:
+          - type: number
+            maximum: 75.0
+            minimum: 2.0
+          - type: 'null'
+          title: Body Fat Pct
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      title: WeightPatch
+    WeightPoint:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        weight_kg:
+          type: number
+          title: Weight Kg
+      type: object
+      required:
+      - date
+      - weight_kg
+      title: WeightPoint
+    WeightSummary:
+      properties:
+        initial:
+          anyOf:
+          - $ref: '#/components/schemas/WeightPoint'
+          - type: 'null'
+        current:
+          anyOf:
+          - $ref: '#/components/schemas/WeightPoint'
+          - type: 'null'
+        target_weight_kg:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Target Weight Kg
+        change_kg:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Change Kg
+          description: 当前 − 初始
+        to_target_kg:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: To Target Kg
+          description: 当前 − 目标；正数表示高于目标
+        change_7d_kg:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Change 7D Kg
+        change_30d_kg:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Change 30D Kg
+        bmi:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Bmi
+        trend:
+          items:
+            $ref: '#/components/schemas/TrendPoint'
+          type: array
+          title: Trend
+        notice:
+          type: string
+          title: Notice
+          default: 仅供健康习惯参考，不是医疗建议
+      type: object
+      required:
+      - initial
+      - current
+      - target_weight_kg
+      - change_kg
+      - to_target_kg
+      - change_7d_kg
+      - change_30d_kg
+      - bmi
+      - trend
+      title: WeightSummary
   securitySchemes:
     SessionCookie:
       type: apiKey

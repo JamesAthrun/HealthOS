@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.audit import add_audit_event, commit_with_tenant_context
 from app.deps import CurrentUser, DbSession
 from app.models import Profile
+from app.weights import _today, sync_profile_weight, upsert_weight
 
 router = APIRouter(prefix="/api", tags=["profile"])
 
@@ -26,7 +27,9 @@ class ProfileIn(BaseModel):
     birth_year: int | None = Field(default=None, ge=1900)
     sex: Literal["male", "female"] | None = None
     height_cm: float | None = Field(default=None, ge=50, le=250)
+    # 兼容旧客户端：传入时记为今天的体重记录；不传或为空则保持不变。新客户端用 /api/weights
     weight_kg: float | None = Field(default=None, ge=20, le=500)
+    target_weight_kg: float | None = Field(default=None, ge=20, le=500)
     activity_level: Literal["sedentary", "light", "moderate", "active"] | None = None
     dietary_preferences: str | None = Field(default=None, max_length=1000)
     allergies: str | None = Field(default=None, max_length=1000)
@@ -71,8 +74,11 @@ def put_profile(body: ProfileIn, request: Request, user: CurrentUser, db: DbSess
     if profile is None:
         profile = Profile(user_id=user.id)
         db.add(profile)
-    for field, value in body.model_dump().items():
+    for field, value in body.model_dump(exclude={"weight_kg"}).items():
         setattr(profile, field, value)
+    if body.weight_kg is not None and body.weight_kg != profile.weight_kg:
+        upsert_weight(db, user.id, _today(user), body.weight_kg)
+        sync_profile_weight(db, user.id)
     add_audit_event(
         db,
         user_id=user.id,
