@@ -6,8 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# 国内服务器可传 --build-arg PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ARG PIP_INDEX_URL=https://pypi.org/simple
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --index-url "$PIP_INDEX_URL" -r requirements.txt
 
 COPY alembic.ini .
 COPY migrations ./migrations

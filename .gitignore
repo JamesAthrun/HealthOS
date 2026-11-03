@@ -29,6 +29,7 @@ htmlcov/
 node_modules/
 .next/
 out/
+/web/
 coverage/
 *.tsbuildinfo
 
