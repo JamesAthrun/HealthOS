@@ -57,6 +57,33 @@ def test_photo_upload_normalizes_deduplicates_and_stays_private():
     assert bob.get(f"/api/meal-photos/{photo['id']}").status_code == 404
 
 
+def test_photo_upload_accepts_iphone_heic():
+    client = authenticated("alice")
+    output = io.BytesIO()
+    Image.new("RGB", (1200, 900), color="olive").save(output, format="HEIF")
+
+    created = client.post(
+        "/api/meal-photos", content=output.getvalue(), headers={"Content-Type": "image/heic"}
+    )
+    assert created.status_code == 201
+    assert created.json()["content_type"] == "image/jpeg"
+    assert (created.json()["width"], created.json()["height"]) == (1200, 900)
+
+
+def test_photo_upload_applies_exif_orientation():
+    client = authenticated("alice")
+    exif = Image.Exif()
+    exif[0x0112] = 6  # 顺时针旋转 90° 显示，iPhone 竖拍常见
+    output = io.BytesIO()
+    Image.new("RGB", (1200, 900), color="olive").save(output, format="JPEG", exif=exif)
+
+    created = client.post(
+        "/api/meal-photos", content=output.getvalue(), headers={"Content-Type": "image/jpeg"}
+    )
+    assert created.status_code == 201
+    assert (created.json()["width"], created.json()["height"]) == (900, 1200)
+
+
 def test_photo_upload_rejects_invalid_content():
     client = authenticated("alice")
     response = upload(client, b"not really a photo")

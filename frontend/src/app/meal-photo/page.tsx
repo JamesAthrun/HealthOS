@@ -163,7 +163,7 @@ export default function MealPhotoPage() {
           使用相机拍照
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             capture="environment"
             onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
           />
@@ -172,11 +172,11 @@ export default function MealPhotoPage() {
           从相册或“文件”中选择
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
           />
         </label>
-        <p className="muted">支持 JPEG、PNG、WebP，最大 10 MB。iPhone 可以从照片图库或“文件”App 中选择。</p>
+        <p className="muted">支持 JPEG、PNG、WebP、HEIC，最大 10 MB。iPhone 可以从照片图库或“文件”App 中选择。</p>
         {preview && <div className="photo-preview" role="img" aria-label="待识别餐食照片预览" style={{ backgroundImage: `url(${preview})` }} />}
         <button type="button" onClick={uploadAndAnalyze} disabled={busy || !file || !consent?.granted}>
           {busy ? "识别中…" : photo ? "重新识别" : "上传并识别"}

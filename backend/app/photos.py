@@ -6,7 +6,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import FileResponse
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
+from pillow_heif import register_heif_opener
 from pydantic import BaseModel
 from sqlalchemy import select
 
@@ -18,6 +19,9 @@ from app.models import Meal, MealAnalysis, MealPhoto
 from app.records import MealIn, MealOut, _meal_out, _replace_food_items
 
 router = APIRouter(prefix="/api", tags=["meal photos"])
+
+# iPhone 默认拍 HEIC；Pillow 本身不支持，需要注册 pillow-heif 解码器。
+register_heif_opener()
 
 MAX_IMAGE_PIXELS = 40_000_000
 MAX_IMAGE_EDGE = 12_000
@@ -83,14 +87,15 @@ def _normalize_image(raw: bytes) -> tuple[bytes, int, int]:
     try:
         with Image.open(io.BytesIO(raw)) as source:
             source.load()
-            if source.format not in {"JPEG", "PNG", "WEBP"}:
-                raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "仅支持 JPEG、PNG 或 WebP")
+            if source.format not in {"JPEG", "PNG", "WEBP", "HEIF"}:
+                raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "仅支持 JPEG、PNG、WebP 或 HEIC")
             width, height = source.size
             if width <= 0 or height <= 0 or width > MAX_IMAGE_EDGE or height > MAX_IMAGE_EDGE:
                 raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "图片尺寸不符合要求")
             if width * height > MAX_IMAGE_PIXELS:
                 raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "图片像素过多")
-            image = source.convert("RGB")
+            # 手机照片靠 EXIF 标记方向，去掉元数据前先把像素转正
+            image = ImageOps.exif_transpose(source).convert("RGB")
             image.thumbnail((OUTPUT_EDGE, OUTPUT_EDGE), Image.Resampling.LANCZOS)
             output = io.BytesIO()
             # 重新编码会移除 EXIF、GPS 和其他原始元数据。
