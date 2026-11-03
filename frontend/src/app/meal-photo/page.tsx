@@ -44,6 +44,7 @@ export default function MealPhotoPage() {
   const [eatenAt, setEatenAt] = useState(() => toDateTimeLocal(new Date()));
   const [items, setItems] = useState<FoodItemInput[]>([]);
   const [notes, setNotes] = useState("");
+  const [hint, setHint] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -66,6 +67,7 @@ export default function MealPhotoPage() {
     setPhoto(null);
     setAnalysis(null);
     setItems([]);
+    setHint("");
     setConfirmed(false);
     setError("");
   }
@@ -77,6 +79,21 @@ export default function MealPhotoPage() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "操作失败");
     }
+  }
+
+  function applyDraft(draft: Analysis) {
+    setAnalysis(draft);
+    if (!draft.result) throw new Error("识别结果为空");
+    setMealType(draft.result.meal_type);
+    setItems(draft.result.food_items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+      kcal: item.kcal,
+      protein_g: item.protein_g,
+      carbs_g: item.carbs_g,
+      fat_g: item.fat_g,
+    })));
   }
 
   async function uploadAndAnalyze() {
@@ -94,20 +111,26 @@ export default function MealPhotoPage() {
       const uploaded = photo ?? await uploadApi<Photo>("/meal-photos", file);
       setPhoto(uploaded);
       const draft = await api<Analysis>(`/meal-photos/${uploaded.id}/analyze`, { method: "POST" });
-      setAnalysis(draft);
-      if (!draft.result) throw new Error("识别结果为空");
-      setMealType(draft.result.meal_type);
-      setItems(draft.result.food_items.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-        kcal: item.kcal,
-        protein_g: item.protein_g,
-        carbs_g: item.carbs_g,
-        fat_g: item.fat_g,
-      })));
+      applyDraft(draft);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "识别失败，可稍后重试或手工记录");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reanalyzeWithHint() {
+    if (!photo || !hint.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      applyDraft(await api<Analysis>(`/meal-photos/${photo.id}/analyze`, {
+        method: "POST",
+        body: { hint: hint.trim() },
+      }));
+      setHint("");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "重新识别失败，可直接修改下方内容");
     } finally {
       setBusy(false);
     }
@@ -178,9 +201,11 @@ export default function MealPhotoPage() {
         </label>
         <p className="muted">支持 JPEG、PNG、WebP、HEIC，最大 10 MB。iPhone 可以从照片图库或“文件”App 中选择。</p>
         {preview && <div className="photo-preview" role="img" aria-label="待识别餐食照片预览" style={{ backgroundImage: `url(${preview})` }} />}
-        <button type="button" onClick={uploadAndAnalyze} disabled={busy || !file || !consent?.granted}>
-          {busy ? "识别中…" : photo ? "重新识别" : "上传并识别"}
-        </button>
+        {!analysis?.result && (
+          <button type="button" onClick={uploadAndAnalyze} disabled={busy || !file || !consent?.granted}>
+            {busy ? "识别中…" : photo ? "重新识别" : "上传并识别"}
+          </button>
+        )}
         <Link href="/meals/">AI 不可用？改用手工记录</Link>
       </section>
 
@@ -196,6 +221,21 @@ export default function MealPhotoPage() {
               {analysis.result.warnings.map((warning) => <li key={warning}>{warning}</li>)}
             </ul>
           )}
+          <div className="consent-box stack">
+            <label>
+              识别不准？告诉 AI 哪里不对
+              <textarea
+                maxLength={200}
+                value={hint}
+                placeholder="例如：这是一碗牛肉面，不是米饭；只吃了一半"
+                onChange={(event) => setHint(event.target.value)}
+              />
+            </label>
+            <button type="button" className="secondary" onClick={reanalyzeWithHint} disabled={busy || !hint.trim()}>
+              {busy ? "识别中…" : "按说明重新识别"}
+            </button>
+            <p className="muted">会把照片和这段说明一起发给 AI，重新生成下方草稿；已修改的内容会被覆盖。</p>
+          </div>
           <label>
             用餐时间
             <input type="datetime-local" required value={eatenAt} onChange={(event) => setEatenAt(event.target.value)} />

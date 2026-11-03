@@ -1,14 +1,16 @@
 import hashlib
 import io
+import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Body, HTTPException, Request, status
 from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.audit import add_audit_event, commit_with_tenant_context, set_tenant_context
@@ -19,6 +21,7 @@ from app.models import Meal, MealAnalysis, MealPhoto
 from app.records import MealIn, MealOut, _meal_out, _replace_food_items
 
 router = APIRouter(prefix="/api", tags=["meal photos"])
+logger = logging.getLogger(__name__)
 
 # iPhone 默认拍 HEIC；Pillow 本身不支持，需要注册 pillow-heif 解码器。
 register_heif_opener()
@@ -31,6 +34,11 @@ OUTPUT_EDGE = 1600
 class ConsentOut(BaseModel):
     granted: bool
     granted_at: datetime | None
+
+
+class AnalyzeIn(BaseModel):
+    # 识别不准时用户补充的说明，例如“这是牛肉面，只吃了一半”
+    hint: str | None = Field(default=None, max_length=200)
 
 
 class MealPhotoOut(BaseModel):
@@ -87,7 +95,9 @@ def _normalize_image(raw: bytes) -> tuple[bytes, int, int]:
     try:
         with Image.open(io.BytesIO(raw)) as source:
             source.load()
-            if source.format not in {"JPEG", "PNG", "WEBP", "HEIF"}:
+            # iPhone 的 JPEG 常带 HDR 增益图/深度图，Pillow 识别为 MPO（多图 JPEG），只取主图
+            if source.format not in {"JPEG", "MPO", "PNG", "WEBP", "HEIF"}:
+                logger.warning("photo format not allowed: %s", source.format)
                 raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "仅支持 JPEG、PNG、WebP 或 HEIC")
             width, height = source.size
             if width <= 0 or height <= 0 or width > MAX_IMAGE_EDGE or height > MAX_IMAGE_EDGE:
@@ -105,6 +115,23 @@ def _normalize_image(raw: bytes) -> tuple[bytes, int, int]:
         raise
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "图片文件无效或已损坏") from exc
+
+
+def _normalize_photo_upload(raw: bytes, request: Request) -> tuple[bytes, int, int]:
+    try:
+        return _normalize_image(raw)
+    except HTTPException as exc:
+        # 只记录格式特征（文件头前 16 字节），不记录图片内容
+        logger.warning(
+            "photo rejected: status=%s detail=%s content_type=%s bytes=%d head=%s cause=%r",
+            exc.status_code,
+            exc.detail,
+            request.headers.get("content-type"),
+            len(raw),
+            raw[:16].hex(),
+            exc.__cause__,
+        )
+        raise
 
 
 @router.get("/ai-consent")
@@ -159,7 +186,7 @@ async def upload_meal_photo(request: Request, user: CurrentUser, db: DbSession) 
     if len(raw) > settings.max_photo_bytes:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "图片不能超过 10 MB")
 
-    normalized, width, height = _normalize_image(raw)
+    normalized, width, height = _normalize_photo_upload(raw, request)
     digest = hashlib.sha256(raw).hexdigest()
     existing = db.scalar(
         select(MealPhoto).where(MealPhoto.user_id == user.id, MealPhoto.sha256 == digest)
@@ -213,13 +240,17 @@ def get_meal_photo(photo_id: uuid.UUID, user: CurrentUser, db: DbSession) -> Fil
 
 @router.post("/meal-photos/{photo_id}/analyze")
 def analyze_meal_photo(
-    photo_id: uuid.UUID, user: CurrentUser, db: DbSession
+    photo_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    body: Annotated[AnalyzeIn | None, Body()] = None,
 ) -> MealAnalysisOut:
     if user.ai_consent_at is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "请先同意将本次照片发送给 AI 服务商处理")
     photo = _owned_photo(db, user, photo_id)
     if photo is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "照片不存在")
+    hint = body.hint.strip() if body and body.hint and body.hint.strip() else None
 
     settings = get_settings()
     if not settings.deepseek_api_key:
@@ -229,7 +260,12 @@ def analyze_meal_photo(
             MealAnalysis.photo_id == photo.id, MealAnalysis.user_id == user.id
         )
     )
-    if analysis and analysis.status in {"succeeded", "confirmed"}:
+    if analysis and analysis.status == "confirmed":
+        if hint:
+            raise HTTPException(status.HTTP_409_CONFLICT, "这张照片已确认记录，不能再重新识别")
+        return _analysis_out(analysis)
+    # 没有更正说明时复用已有结果，避免重复调用 AI
+    if analysis and analysis.status == "succeeded" and not hint:
         return _analysis_out(analysis)
     if analysis is None:
         analysis = MealAnalysis(
@@ -244,11 +280,13 @@ def analyze_meal_photo(
     else:
         analysis.status = "processing"
         analysis.error_code = None
+        analysis.model = settings.deepseek_model
+        analysis.prompt_version = PROMPT_VERSION
     commit_with_tenant_context(db, user.id)
     db.refresh(analysis)
 
     try:
-        result = recognize_meal(_photo_path(photo.storage_key).read_bytes(), settings)
+        result = recognize_meal(_photo_path(photo.storage_key).read_bytes(), settings, hint=hint)
     except AIProviderError as exc:
         analysis.status = "failed"
         analysis.error_code = exc.code
