@@ -3,9 +3,24 @@ import io
 from PIL import Image
 
 import app.photos as photos_module
-from app.meal_ai import MealRecognition
+from app.meal_ai import MealRecognition, _strip_code_fence
 from app.config import get_settings
 from tests.conftest import create_user, login, new_client
+
+
+def test_ai_response_code_fence_is_stripped():
+    assert _strip_code_fence('```json\n{"a": 1}\n```') == '{"a": 1}\n'
+    assert _strip_code_fence(' {"a": 1} ') == '{"a": 1}'
+
+
+def test_ai_meal_type_variants_are_normalized():
+    item = {"name": "米饭", "quantity": 1, "unit": "碗", "kcal": 200, "confidence": 0.8}
+    base = {"food_items": [item], "overall_confidence": 0.8, "warnings": []}
+    assert MealRecognition.model_validate({**base, "meal_type": "午餐"}).meal_type == "lunch"
+    assert MealRecognition.model_validate({**base, "meal_type": " Dinner "}).meal_type == "dinner"
+    unknown = MealRecognition.model_validate({**base, "meal_type": "不确定"})
+    assert unknown.meal_type == "snack"
+    assert unknown.warnings == ["未能判断餐次，请确认"]
 
 
 def authenticated(username: str):
@@ -70,6 +85,21 @@ def test_photo_upload_accepts_iphone_heic():
     assert (created.json()["width"], created.json()["height"]) == (1200, 900)
 
 
+def test_photo_upload_accepts_iphone_mpo_jpeg():
+    client = authenticated("alice")
+    output = io.BytesIO()
+    primary = Image.new("RGB", (1200, 900), color="olive")
+    gain_map = Image.new("RGB", (600, 450), color="gray")
+    primary.save(output, format="MPO", save_all=True, append_images=[gain_map])
+    assert Image.open(io.BytesIO(output.getvalue())).format == "MPO"
+
+    created = client.post(
+        "/api/meal-photos", content=output.getvalue(), headers={"Content-Type": "image/jpeg"}
+    )
+    assert created.status_code == 201
+    assert (created.json()["width"], created.json()["height"]) == (1200, 900)
+
+
 def test_photo_upload_applies_exif_orientation():
     client = authenticated("alice")
     exif = Image.Exif()
@@ -104,7 +134,7 @@ def test_ai_draft_requires_consent_and_only_counts_after_confirmation(monkeypatc
     monkeypatch.setattr(
         photos_module,
         "recognize_meal",
-        lambda _image, _settings: MealRecognition.model_validate(
+        lambda _image, _settings, hint=None: MealRecognition.model_validate(
             {
                 "meal_type": "lunch",
                 "food_items": [
@@ -164,3 +194,41 @@ def test_ai_draft_requires_consent_and_only_counts_after_confirmation(monkeypatc
     assert len(client.get("/api/meals").json()) == 1
 
     assert client.delete("/api/ai-consent").json()["granted"] is False
+
+
+def test_user_hint_triggers_fresh_recognition_until_confirmed(monkeypatch):
+    client = authenticated("alice")
+    photo_id = upload(client, image_bytes("navy")).json()["id"]
+    client.put("/api/ai-consent")
+    monkeypatch.setattr(get_settings(), "deepseek_api_key", "test-key")
+    calls = []
+
+    def fake(_image, _settings, hint=None):
+        calls.append(hint)
+        name = "牛肉面" if hint else "米饭"
+        return MealRecognition.model_validate({
+            "meal_type": "lunch",
+            "food_items": [{"name": name, "quantity": 1, "unit": "碗", "kcal": 500, "confidence": 0.8}],
+            "overall_confidence": 0.8,
+        })
+
+    monkeypatch.setattr(photos_module, "recognize_meal", fake)
+    analyze = f"/api/meal-photos/{photo_id}/analyze"
+    assert client.post(analyze).json()["result"]["food_items"][0]["name"] == "米饭"
+    # 没有说明时复用结果，不重复调用 AI
+    assert client.post(analyze).json()["result"]["food_items"][0]["name"] == "米饭"
+    assert calls == [None]
+
+    retried = client.post(analyze, json={"hint": "  这是一碗牛肉面  "})
+    assert retried.status_code == 200
+    assert retried.json()["result"]["food_items"][0]["name"] == "牛肉面"
+    assert calls == [None, "这是一碗牛肉面"]
+    assert client.post(analyze, json={"hint": "x" * 201}).status_code == 422
+
+    meal = {
+        "eaten_at": "2026-10-31T12:00:00+08:00",
+        "meal_type": "lunch",
+        "food_items": [{"name": "牛肉面", "quantity": 1, "unit": "碗", "kcal": 500}],
+    }
+    assert client.post(f"/api/meal-photos/{photo_id}/confirm", json=meal).status_code == 201
+    assert client.post(analyze, json={"hint": "只吃了一半"}).status_code == 409
