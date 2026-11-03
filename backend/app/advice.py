@@ -13,7 +13,7 @@ from app.advice_service import (
     build_advice_context,
     run_advice_job,
 )
-from app.audit import add_audit_event, set_tenant_context
+from app.audit import add_audit_event, commit_with_tenant_context, set_tenant_context
 from app.config import get_settings
 from app.dashboard import _user_timezone
 from app.deps import CurrentUser, DbSession
@@ -204,8 +204,7 @@ def _mark_stale_advice_failed(db: DbSession, user: CurrentUser) -> None:
     for item in stale:
         item.status = "failed"
         item.error_code = "AI_JOB_INTERRUPTED"
-    db.commit()
-    set_tenant_context(db, user.id)
+    commit_with_tenant_context(db, user.id)
 
 
 @router.get("/planning-consent")
@@ -266,8 +265,7 @@ def create_note(body: NoteIn, user: CurrentUser, db: DbSession) -> NoteOut:
         expires_at=expires_at,
     )
     db.add(note)
-    db.commit()
-    set_tenant_context(db, user.id)
+    commit_with_tenant_context(db, user.id)
     db.refresh(note)
     return _note_out(note)
 
@@ -286,8 +284,7 @@ def patch_note(note_id: uuid.UUID, body: NotePatch, user: CurrentUser, db: DbSes
         note.expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     if note.category != "temporary":
         note.expires_at = None
-    db.commit()
-    set_tenant_context(db, user.id)
+    commit_with_tenant_context(db, user.id)
     db.refresh(note)
     return _note_out(note)
 
@@ -349,8 +346,7 @@ def _create_advice(
         prompt_version=PROMPT_VERSION,
     )
     db.add(advice)
-    db.commit()
-    set_tenant_context(db, user.id)
+    commit_with_tenant_context(db, user.id)
     db.refresh(advice)
     background_tasks.add_task(run_advice_job, advice.id, user.id)
     return _advice_out(advice, user)
@@ -425,7 +421,6 @@ def give_feedback(
             remembered_note.expires_at = None
     elif remembered_note is not None:
         db.delete(remembered_note)
-    db.commit()
-    set_tenant_context(db, user.id)
+    commit_with_tenant_context(db, user.id)
     db.refresh(advice)
     return _advice_out(advice, user)

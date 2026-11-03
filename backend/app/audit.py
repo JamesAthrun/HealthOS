@@ -16,6 +16,13 @@ def set_tenant_context(db: Session, user_id: uuid.UUID) -> None:
         )
 
 
+def commit_with_tenant_context(db: Session, user_id: uuid.UUID) -> None:
+    """提交当前事务，并为后续 RLS 查询恢复当前用户上下文。"""
+
+    db.commit()
+    set_tenant_context(db, user_id)
+
+
 def add_audit_event(
     db: Session,
     *,

@@ -10,7 +10,7 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from app.audit import add_audit_event
+from app.audit import add_audit_event, commit_with_tenant_context, set_tenant_context
 from app.config import get_settings
 from app.deps import CurrentUser, DbSession
 from app.meal_ai import AIProviderError, MealRecognition, PROMPT_VERSION, recognize_meal
@@ -186,6 +186,7 @@ async def upload_meal_photo(request: Request, user: CurrentUser, db: DbSession) 
     except Exception:
         target.unlink(missing_ok=True)
         raise
+    set_tenant_context(db, user.id)
     db.refresh(photo)
     return _photo_out(photo)
 
@@ -238,7 +239,7 @@ def analyze_meal_photo(
     else:
         analysis.status = "processing"
         analysis.error_code = None
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(analysis)
 
     try:
@@ -254,7 +255,7 @@ def analyze_meal_photo(
     analysis.status = "succeeded"
     analysis.result_json = result.model_dump_json()
     analysis.error_code = None
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(analysis)
     return _analysis_out(analysis)
 
@@ -317,6 +318,6 @@ def confirm_meal_analysis(
         outcome="success",
         ip_address=request.client.host if request.client else None,
     )
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(meal)
     return _meal_out(db, meal)

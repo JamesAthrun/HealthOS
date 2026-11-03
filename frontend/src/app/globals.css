@@ -217,6 +217,24 @@ textarea {
   flex: 1;
 }
 
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.choice-grid button {
+  padding: 9px 6px;
+  font-size: 14px;
+}
+
+.choice-grid button[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: #edf7f1;
+  color: var(--primary);
+}
+
 button.danger {
   background: var(--danger);
 }

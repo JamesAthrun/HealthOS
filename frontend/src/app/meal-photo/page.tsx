@@ -160,7 +160,7 @@ export default function MealPhotoPage() {
           </div>
         )}
         <label>
-          拍照或选择照片（JPEG、PNG、WebP，最大 10 MB）
+          使用相机拍照
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
@@ -168,6 +168,15 @@ export default function MealPhotoPage() {
             onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
           />
         </label>
+        <label>
+          从相册或“文件”中选择
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
+          />
+        </label>
+        <p className="muted">支持 JPEG、PNG、WebP，最大 10 MB。iPhone 可以从照片图库或“文件”App 中选择。</p>
         {preview && <div className="photo-preview" role="img" aria-label="待识别餐食照片预览" style={{ backgroundImage: `url(${preview})` }} />}
         <button type="button" onClick={uploadAndAnalyze} disabled={busy || !file || !consent?.granted}>
           {busy ? "识别中…" : photo ? "重新识别" : "上传并识别"}

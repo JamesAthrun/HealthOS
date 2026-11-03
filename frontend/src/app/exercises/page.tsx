@@ -18,6 +18,18 @@ const INTENSITY_LABELS: Record<Exercise["intensity"], string> = {
   high: "高",
 };
 
+const COMMON_EXERCISE_TYPES = [
+  "走路",
+  "跑步",
+  "健身",
+  "网球",
+  "游泳",
+  "骑行",
+  "瑜伽",
+  "羽毛球",
+  "篮球",
+] as const;
+
 export default function ExercisesPage() {
   const me = useMe();
   const [rows, setRows] = useState<Exercise[]>([]);
@@ -109,7 +121,23 @@ export default function ExercisesPage() {
       <form className="card stack" onSubmit={onSubmit}>
         <h1>{editingId ? "编辑运动" : "记录运动"}</h1>
         {error && <p className="error" role="alert">{error}</p>}
-        <label>运动类型<input value={type} maxLength={50} onChange={(e) => setType(e.target.value)} placeholder="例如：快走、游泳" required /></label>
+        <label>运动类型<input value={type} maxLength={50} onChange={(e) => setType(e.target.value)} placeholder="选择常用项目或输入其他活动" required /></label>
+        <div>
+          <p className="muted">常用运动</p>
+          <div className="choice-grid" role="group" aria-label="常用运动类型">
+            {COMMON_EXERCISE_TYPES.map((exerciseType) => (
+              <button
+                key={exerciseType}
+                type="button"
+                className="secondary"
+                aria-pressed={type === exerciseType}
+                onClick={() => setType(exerciseType)}
+              >
+                {exerciseType}
+              </button>
+            ))}
+          </div>
+        </div>
         <label>开始时间<input type="datetime-local" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} required /></label>
         <label>时长（分钟）<input type="number" min="1" max="1440" value={minutes} onChange={(e) => setMinutes(e.target.value)} required /></label>
         <label>
