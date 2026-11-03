@@ -239,6 +239,42 @@ button.danger {
   background: var(--danger);
 }
 
+.pref-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.pref-buttons {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.pref-buttons button {
+  width: auto;
+  padding: 4px 10px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.pref-buttons button[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: #edf7f1;
+  color: var(--primary);
+}
+
+.pref-buttons button:last-child[aria-pressed="true"] {
+  border-color: var(--danger);
+  background: #fdf0f0;
+  color: var(--danger);
+}
+
 .food-row {
   padding: 12px;
   border: 1px solid var(--border);

@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
 import { useMe } from "@/lib/useMe";
+import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
 
 type Category = "limitation" | "preference" | "tried" | "temporary";
 type Note = {
@@ -29,10 +30,13 @@ export default function NotesPage() {
   const [category, setCategory] = useState<Category>("preference");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const foodPrefs = useFoodPreferences(Boolean(me));
+  const [frequent, setFrequent] = useState<{ food_name: string; count: number }[]>([]);
 
   useEffect(() => {
     if (!me) return;
     api<Note[]>("/notes").then(setNotes).catch(() => setError("记录加载失败"));
+    api<{ food_name: string; count: number }[]>("/food-preferences/frequent").then(setFrequent).catch(() => setFrequent([]));
   }, [me]);
 
   if (!me) return <p>加载中…</p>;
@@ -99,6 +103,31 @@ export default function NotesPage() {
             <div className="actions"><button type="button" className="danger" onClick={() => remove(note.id)}>删除</button></div>
           </article>
         ))}
+      </section>
+      <section className="card stack">
+        <div>
+          <h2>食物偏好</h2>
+          <p className="muted">在饮食记录、拍照识别和参考餐单里点“喜欢 / 不想再吃”即可添加。生成明日建议时，餐单会优先使用喜欢和常吃的食物。</p>
+        </div>
+        {foodPrefs.error && <p className="error" role="alert">{foodPrefs.error}</p>}
+        {foodPrefs.prefs.length === 0 && <p className="muted">还没有标记。</p>}
+        {foodPrefs.prefs.map((pref) => (
+          <div className="pref-row" key={pref.id}>
+            <span>{pref.food_name} · {pref.sentiment === "like" ? "喜欢" : "不想再吃"}</span>
+            <span className="pref-buttons"><button type="button" onClick={() => void foodPrefs.remove(pref.id)}>删除</button></span>
+          </div>
+        ))}
+        {frequent.length > 0 && (
+          <>
+            <h3>最近 30 天常吃</h3>
+            {frequent.map((food) => (
+              <div className="pref-row" key={food.food_name}>
+                <span>{food.food_name} · {food.count} 次</span>
+                <FoodPrefButtons name={food.food_name} current={foodPrefs.find(food.food_name)?.sentiment} onToggle={foodPrefs.toggle} />
+              </div>
+            ))}
+          </>
+        )}
       </section>
       <Link href="/advice/">返回健康规划</Link>
       <Link href="/">返回首页</Link>

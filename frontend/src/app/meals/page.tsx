@@ -11,6 +11,7 @@ import {
   toDateTimeLocal,
 } from "@/lib/health";
 import { useMe } from "@/lib/useMe";
+import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
 
 type FoodForm = {
   name: string;
@@ -49,6 +50,7 @@ export default function MealsPage() {
   const [foods, setFoods] = useState<FoodForm[]>([{ ...EMPTY_FOOD }]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const foodPrefs = useFoodPreferences(Boolean(me));
 
   async function load() {
     try {
@@ -180,10 +182,16 @@ export default function MealsPage() {
 
       <section className="card">
         <h1>最近饮食</h1>
+        {foodPrefs.error && <p className="error" role="alert">{foodPrefs.error}</p>}
         {meals.length === 0 ? <p className="muted">还没有饮食记录</p> : meals.map((meal) => (
           <article className="record-card" key={meal.id}>
             <strong>{MEAL_LABELS[meal.meal_type]} · {formatLocalDateTime(meal.eaten_at)}</strong>
-            {meal.food_items.map((food) => <p key={food.id}>{food.name}，{food.quantity} {food.unit}，{food.kcal} kcal</p>)}
+            {meal.food_items.map((food) => (
+              <div className="pref-row" key={food.id}>
+                <span>{food.name}，{food.quantity} {food.unit}，{food.kcal} kcal</span>
+                <FoodPrefButtons name={food.name} current={foodPrefs.find(food.name)?.sentiment} onToggle={foodPrefs.toggle} />
+              </div>
+            ))}
             {meal.notes && <p className="muted">{meal.notes}</p>}
             <div className="actions">
               <button type="button" className="secondary" onClick={() => edit(meal)}>编辑</button>

@@ -16,10 +16,12 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.dashboard import DailySummary, _daily_summary, _user_timezone
 from app.models import Advice, Profile, User, UserNote
+from app.food_prefs import normalize_food_name, preference_context
+from app.meal_ai import BUSY_STATUSES, _strip_code_fence, busy_backoff
 from app.weights import weight_stats
 
-PROMPT_VERSION = "advice-v2"
-PROMPT_PATH = Path(__file__).with_name("prompts") / "advice_v2.txt"
+PROMPT_VERSION = "advice-v3"
+PROMPT_PATH = Path(__file__).with_name("prompts") / "advice_v3.txt"
 logger = logging.getLogger(__name__)
 
 
@@ -42,12 +44,30 @@ class AdviceAction(BaseModel):
     confidence: Literal["low", "medium", "high"]
 
 
+class MealPlanItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=50)
+    portion: str = Field(min_length=1, max_length=30)
+    approx_kcal: int = Field(ge=0, le=3000)
+
+
+class MealPlanGroup(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    meal_type: Literal["breakfast", "lunch", "dinner", "snack"]
+    items: list[MealPlanItem] = Field(min_length=1, max_length=3)
+    reason: str = Field(min_length=1, max_length=200)
+
+
 class AdviceContent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     summary: str = Field(min_length=1, max_length=500)
     actions: list[AdviceAction] = Field(min_length=1, max_length=5)
     limitations: list[str] = Field(default_factory=list, max_length=8)
+    # 仅每日建议使用；旧建议和周计划为空
+    meal_plan: list[MealPlanGroup] = Field(default_factory=list, max_length=4)
 
 
 class AdviceProviderError(RuntimeError):
@@ -348,6 +368,8 @@ def build_advice_context(
             "change_7d_kg": weight.change_7d_kg,
             "change_30d_kg": weight.change_30d_kg,
         },
+        # 变化较少的层放在前面，尽量命中 DeepSeek 前缀缓存
+        "food_preferences": preference_context(db, user.id),
         "last_7_days": [day.model_dump(mode="json") for day in completed_days[-7:]],
         "today": days[-1].model_dump(mode="json"),
         "last_30_days": {
@@ -379,6 +401,10 @@ def _validate_safety(content: AdviceContent, allowed_refs: set[str]) -> AdviceCo
     text = " ".join(
         [content.summary, *content.limitations]
         + [f"{item.action} {item.rationale}" for item in content.actions]
+        + [
+            f"{group.reason} " + " ".join(item.name for item in group.items)
+            for group in content.meal_plan
+        ]
     ).lower()
     text = _SAFE_CONTEXT_RE.sub(" ", text)
     if any(term in text for term in UNSAFE_TERMS):
@@ -406,6 +432,50 @@ def _validate_plan_timing(content: AdviceContent, context: dict[str, object]) ->
             raise AdviceProviderError("AI_INVALID_PLAN_DATE")
 
 
+_ALLERGY_SPLIT_RE = re.compile(r"[，,、;；/\s]+|和|及|与|或")
+_ALLERGY_SUFFIXES = ("过敏", "不耐受")
+_NO_ALLERGY_WORDS = {"无", "没有", "暂无", "none", "no", "n/a"}
+
+
+def allergy_keywords(allergies: str | None) -> list[str]:
+    """把档案里的过敏描述拆成关键词，例如“花生、虾过敏”→ [花生, 虾]。"""
+    if not allergies:
+        return []
+    keywords = []
+    for raw in _ALLERGY_SPLIT_RE.split(normalize_food_name(allergies)):
+        word = raw
+        for suffix in _ALLERGY_SUFFIXES:
+            word = word.removesuffix(suffix)
+        if word and word not in _NO_ALLERGY_WORDS:
+            keywords.append(word)
+    return keywords
+
+
+def filter_meal_plan(content: AdviceContent, context: dict[str, object]) -> AdviceContent:
+    """代码层面的硬性过滤：周计划不带餐单；含过敏原或“不想再吃”的食物直接丢弃。"""
+    plan = context.get("plan")
+    if not isinstance(plan, dict) or plan.get("kind") != "daily":
+        return content.model_copy(update={"meal_plan": []})
+    profile = context.get("profile")
+    prefs = context.get("food_preferences")
+    allergens = allergy_keywords(profile.get("allergies") if isinstance(profile, dict) else None)
+    dislikes = [normalize_food_name(d) for d in (prefs.get("dislikes", []) if isinstance(prefs, dict) else [])]
+
+    def blocked(name: str) -> bool:
+        food = normalize_food_name(name)
+        if any(allergen in food for allergen in allergens):
+            return True
+        # 单字的“不想再吃”只做精确匹配，避免“鸡”误伤所有含鸡的菜
+        return any(food == d or (len(d) >= 2 and d in food) for d in dislikes)
+
+    groups = []
+    for group in content.meal_plan:
+        items = [item for item in group.items if not blocked(item.name)]
+        if items:
+            groups.append(group.model_copy(update={"items": items}))
+    return content.model_copy(update={"meal_plan": groups})
+
+
 def generate_advice(context: dict[str, object], settings: Settings) -> ProviderResult:
     if not settings.deepseek_api_key:
         raise AdviceProviderError("AI_NOT_CONFIGURED")
@@ -422,11 +492,14 @@ def generate_advice(context: dict[str, object], settings: Settings) -> ProviderR
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.3,
-        "max_tokens": 1800,
+        # 推理 token 也计入上限；餐单让输出变长
+        "max_tokens": 4000,
     }
     started = time.monotonic()
     last_code = "AI_INVALID_RESPONSE"
-    for _attempt in range(2):
+    attempt = 0
+    busy_retries = 0
+    while attempt < 2:
         try:
             with httpx.Client(timeout=settings.deepseek_timeout_seconds) as client:
                 response = client.post(
@@ -436,10 +509,13 @@ def generate_advice(context: dict[str, object], settings: Settings) -> ProviderR
                 )
                 response.raise_for_status()
             body = response.json()
-            content = AdviceContent.model_validate_json(body["choices"][0]["message"]["content"])
+            content = AdviceContent.model_validate_json(
+                _strip_code_fence(body["choices"][0]["message"]["content"])
+            )
             allowed_refs = {item["id"] for item in context.get("observations", [])}  # type: ignore[index]
             _validate_safety(content, allowed_refs)
             _validate_plan_timing(content, context)
+            content = filter_meal_plan(content, context)
             usage = body.get("usage", {})
             return ProviderResult(
                 content=content,
@@ -455,11 +531,15 @@ def generate_advice(context: dict[str, object], settings: Settings) -> ProviderR
             last_code = f"AI_HTTP_{exc.response.status_code}"
             if exc.response.status_code in {400, 401, 403}:
                 break
+            if exc.response.status_code in BUSY_STATUSES and busy_backoff(busy_retries):
+                busy_retries += 1
+                continue
         except AdviceProviderError as exc:
             # 输出校验失败（不安全、证据无效、日期不符）通常是偶发的，换一次生成再判断
             last_code = exc.code
         except (KeyError, TypeError, json.JSONDecodeError, ValidationError):
             last_code = "AI_INVALID_RESPONSE"
+        attempt += 1
     raise AdviceProviderError(last_code)
 
 

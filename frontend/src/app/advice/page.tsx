@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
 import { useMe } from "@/lib/useMe";
+import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
 
 type Consent = { granted: boolean; granted_at: string | null };
 type AdviceAction = {
@@ -14,12 +15,17 @@ type AdviceAction = {
   evidence_refs: string[];
   confidence: "low" | "medium" | "high";
 };
+type MealPlanGroup = {
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+  items: { name: string; portion: string; approx_kcal: number }[];
+  reason: string;
+};
 type Advice = {
   id: string;
   kind: "daily" | "weekly";
   for_date: string;
   status: "pending" | "succeeded" | "failed";
-  content: { summary: string; actions: AdviceAction[]; limitations: string[] } | null;
+  content: { summary: string; actions: AdviceAction[]; limitations: string[]; meal_plan: MealPlanGroup[] } | null;
   feedback: string | null;
   error_code: string | null;
   created_at: string;
@@ -28,6 +34,7 @@ type FeedbackValue = "useful" | "not_applicable" | "unsafe";
 type FeedbackDraft = { feedback: FeedbackValue; reason: string; remember: boolean };
 
 const CATEGORY_LABELS = { diet: "饮食", exercise: "运动", sleep: "睡眠", general: "日常" };
+const MEAL_LABELS = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" };
 
 export default function AdvicePage() {
   const me = useMe();
@@ -37,6 +44,7 @@ export default function AdvicePage() {
   const [feedbackBusy, setFeedbackBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, FeedbackDraft>>({});
+  const foodPrefs = useFoodPreferences(Boolean(me));
 
   const load = useCallback(async () => {
     const [nextConsent, nextItems] = await Promise.all([
@@ -140,7 +148,7 @@ export default function AdvicePage() {
         {error && <p className="error" role="alert">{error}</p>}
         {consent && !consent.granted && (
           <div className="consent-box">
-            <p>生成时会把近 30 天的聚合健康摘要、“关于我”、最近建议，以及你填写的评价和反馈原因发送给 DeepSeek。不会发送用户名、照片或饮食、运动、睡眠的原始备注。本同意与餐食照片处理相互独立，可随时撤回。</p>
+            <p>生成时会把近 30 天的聚合健康摘要、体重变化、“关于我”、你标记的食物偏好和近 30 天常吃的食物名称、最近建议，以及你填写的评价和反馈原因发送给 DeepSeek。不会发送用户名、照片或饮食、运动、睡眠的原始备注。本同意与餐食照片处理相互独立，可随时撤回。</p>
             <button type="button" onClick={grantConsent}>同意使用健康摘要生成规划</button>
           </div>
         )}
@@ -177,6 +185,27 @@ export default function AdvicePage() {
           ))}
           {item.content && item.content.limitations.length > 0 && (
             <ul className="warning-list">{item.content.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul>
+          )}
+          {item.content && item.content.meal_plan?.length > 0 && (
+            <section className="stack" aria-label="参考餐单">
+              <h3>参考餐单</h3>
+              {foodPrefs.error && <p className="error" role="alert">{foodPrefs.error}</p>}
+              {item.content.meal_plan.map((group) => (
+                <section className="advice-action" key={group.meal_type}>
+                  <strong>
+                    {MEAL_LABELS[group.meal_type]} · 约 {group.items.reduce((sum, food) => sum + food.approx_kcal, 0)} kcal
+                  </strong>
+                  {group.items.map((food) => (
+                    <div className="pref-row" key={food.name}>
+                      <span>{food.name}，{food.portion}，约 {food.approx_kcal} kcal</span>
+                      <FoodPrefButtons name={food.name} current={foodPrefs.find(food.name)?.sentiment} onToggle={foodPrefs.toggle} />
+                    </div>
+                  ))}
+                  <small>{group.reason}</small>
+                </section>
+              ))}
+              <p className="muted">已按档案中的过敏信息和“不想再吃”过滤；如发现遗漏，请补充到档案的过敏信息中。</p>
+            </section>
           )}
           {item.status === "succeeded" && (
             item.feedback ? <p className="muted">反馈已保存：{item.feedback === "useful" ? "有帮助" : item.feedback === "unsafe" ? "不安全" : "不适用"}</p> :
