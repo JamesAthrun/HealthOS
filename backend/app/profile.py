@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 
-from app.audit import add_audit_event
+from app.audit import add_audit_event, commit_with_tenant_context
 from app.deps import CurrentUser, DbSession
 from app.models import Profile
 
@@ -80,7 +80,7 @@ def put_profile(body: ProfileIn, request: Request, user: CurrentUser, db: DbSess
         outcome="success",
         ip_address=request.client.host if request.client else None,
     )
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(profile)
     return _profile_out(profile)
 

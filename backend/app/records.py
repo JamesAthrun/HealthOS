@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import delete, select
 
-from app.audit import add_audit_event
+from app.audit import add_audit_event, commit_with_tenant_context
 from app.deps import CurrentUser, DbSession
 from app.models import Exercise, FoodItem, Meal, Sleep
 from app.repositories import get_owned_exercise, get_owned_meal, get_owned_sleep
@@ -136,7 +136,7 @@ def create_meal(body: MealIn, user: CurrentUser, db: DbSession) -> MealOut:
     db.add(meal)
     db.flush()
     _replace_food_items(db, meal, user.id, body.food_items)
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(meal)
     return _meal_out(db, meal)
 
@@ -161,7 +161,7 @@ def patch_meal(
             setattr(meal, field, getattr(body, field))
     if body.food_items is not None:
         _replace_food_items(db, meal, user.id, body.food_items)
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(meal)
     return _meal_out(db, meal)
 
@@ -232,7 +232,7 @@ def list_exercises(user: CurrentUser, db: DbSession) -> list[ExerciseOut]:
 def create_exercise(body: ExerciseIn, user: CurrentUser, db: DbSession) -> ExerciseOut:
     exercise = Exercise(user_id=user.id, **body.model_dump())
     db.add(exercise)
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(exercise)
     return _exercise_out(exercise)
 
@@ -256,7 +256,7 @@ def patch_exercise(
         raise _not_found()
     for field in body.model_fields_set:
         setattr(exercise, field, getattr(body, field))
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(exercise)
     return _exercise_out(exercise)
 
@@ -329,7 +329,7 @@ def list_sleeps(user: CurrentUser, db: DbSession) -> list[SleepOut]:
 def create_sleep(body: SleepIn, user: CurrentUser, db: DbSession) -> SleepOut:
     sleep = Sleep(user_id=user.id, **body.model_dump())
     db.add(sleep)
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(sleep)
     return _sleep_out(sleep)
 
@@ -355,7 +355,7 @@ def patch_sleep(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "睡眠时间范围无效")
     for field in body.model_fields_set:
         setattr(sleep, field, getattr(body, field))
-    db.commit()
+    commit_with_tenant_context(db, user.id)
     db.refresh(sleep)
     return _sleep_out(sleep)
 

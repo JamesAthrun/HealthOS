@@ -1,10 +1,32 @@
+import uuid
+
 import pytest
 from sqlalchemy import select
 
+import app.audit as audit_module
 from app.audit import add_audit_event, set_tenant_context
 from app.db import SessionLocal, engine
 from app.models import AuditEvent, MealPhoto, User
 from tests.conftest import create_user, login, new_client
+
+
+def test_commit_with_tenant_context_restores_context_after_commit(monkeypatch):
+    calls: list[tuple[str, object | None]] = []
+    user_id = uuid.uuid4()
+
+    class FakeSession:
+        def commit(self) -> None:
+            calls.append(("commit", None))
+
+    monkeypatch.setattr(
+        audit_module,
+        "set_tenant_context",
+        lambda _db, next_user_id: calls.append(("tenant", next_user_id)),
+    )
+
+    audit_module.commit_with_tenant_context(FakeSession(), user_id)  # type: ignore[arg-type]
+
+    assert calls == [("commit", None), ("tenant", user_id)]
 
 
 def test_user_can_update_only_their_own_account_settings():
