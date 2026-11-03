@@ -31,7 +31,10 @@ services:
     restart: unless-stopped
 
   migrate:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
     image: healthos-api:dev
     env_file: .env
     environment:
@@ -46,7 +49,10 @@ services:
     restart: "no"
 
   api:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
     image: healthos-api:dev
     env_file: .env
     environment:
@@ -64,14 +70,14 @@ services:
     restart: unless-stopped
 
   caddy:
-    build:
-      context: .
-      dockerfile: infrastructure/Dockerfile
-    image: healthos-web:dev
+    # 前端在本机 `npm run build` 后，把 frontend/out 上传到服务器的 ./web；服务器上不构建前端
+    image: caddy:2.10-alpine
     ports:
       # 本地开发；Sprint 5 改为 80:80 和 443:443
       - "127.0.0.1:8080:80"
     volumes:
+      - ./infrastructure/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/srv/web:ro
       - caddy_data:/data
     depends_on:
       - api

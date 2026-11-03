@@ -1,0 +1,2 @@
+# 在容器里执行的脚本必须是 LF，否则 Linux 报 "/bin/sh^M: bad interpreter"
+*.sh text eol=lf
