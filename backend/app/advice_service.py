@@ -16,9 +16,10 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.dashboard import DailySummary, _daily_summary, _user_timezone
 from app.models import Advice, Profile, User, UserNote
+from app.weights import weight_stats
 
-PROMPT_VERSION = "advice-v1"
-PROMPT_PATH = Path(__file__).with_name("prompts") / "advice_v1.txt"
+PROMPT_VERSION = "advice-v2"
+PROMPT_PATH = Path(__file__).with_name("prompts") / "advice_v2.txt"
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +27,7 @@ class Observation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(min_length=1, max_length=64)
-    kind: Literal["diet", "exercise", "sleep", "records"]
+    kind: Literal["diet", "exercise", "sleep", "records", "weight"]
     message: str = Field(min_length=1, max_length=300)
     severity: Literal["info", "attention"]
 
@@ -222,6 +223,31 @@ def derive_observations(
     return observations
 
 
+def derive_weight_observations(
+    change_7d_kg: float | None, change_30d_kg: float | None
+) -> list[Observation]:
+    observations: list[Observation] = []
+    if change_7d_kg is not None and change_7d_kg < -1.0:
+        observations.append(
+            Observation(
+                id="weight-drop-fast-7d",
+                kind="weight",
+                message=f"最近 7 天体重下降 {abs(change_7d_kg)} kg，超过每周约 1 kg。",
+                severity="attention",
+            )
+        )
+    if change_30d_kg is not None and change_30d_kg > 2.0:
+        observations.append(
+            Observation(
+                id="weight-gain-30d",
+                kind="weight",
+                message=f"最近 30 天体重上升 {change_30d_kg} kg。",
+                severity="info",
+            )
+        )
+    return observations
+
+
 def build_advice_context(
     db: Session, user: User, *, kind: str, for_date: date
 ) -> tuple[dict[str, object], list[Observation]]:
@@ -296,6 +322,8 @@ def build_advice_context(
                 break
     target_kcal = profile.daily_kcal_target if profile else None
     observations = derive_observations(days, target_kcal, current_date=end_date)
+    weight = weight_stats(db, user, end_date)
+    observations += derive_weight_observations(weight.change_7d_kg, weight.change_30d_kg)
     recorded_kcal = [day.kcal for day in completed_days if day.meal_count > 0]
     recorded_sleep = [day.sleep_minutes for day in completed_days if day.sleep_minutes > 0]
     age_band = None
@@ -304,7 +332,7 @@ def build_advice_context(
         age_band = f"{age // 10 * 10}-{age // 10 * 10 + 9}"
 
     context: dict[str, object] = {
-        "schema_version": "1",
+        "schema_version": "2",
         "plan": {"kind": kind, "for_date": for_date.isoformat()},
         "profile": {
             "age_band": age_band,
@@ -313,6 +341,12 @@ def build_advice_context(
             "daily_kcal_target": target_kcal,
             "dietary_preferences": profile.dietary_preferences if profile else None,
             "allergies": profile.allergies if profile else None,
+        },
+        "weight": {
+            "current_kg": weight.current.weight_kg if weight.current else None,
+            "target_kg": profile.target_weight_kg if profile else None,
+            "change_7d_kg": weight.change_7d_kg,
+            "change_30d_kg": weight.change_30d_kg,
         },
         "last_7_days": [day.model_dump(mode="json") for day in completed_days[-7:]],
         "today": days[-1].model_dump(mode="json"),

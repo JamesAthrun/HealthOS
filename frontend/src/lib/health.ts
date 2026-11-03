@@ -70,6 +70,42 @@ export type TrendDashboard = {
   days: DailySummary[];
 };
 
+export type WeightLog = {
+  id: string;
+  measured_on: string;
+  weight_kg: number;
+  waist_cm: number | null;
+  body_fat_pct: number | null;
+  notes: string | null;
+  warning: string | null;
+};
+
+export type WeightPoint = { date: string; weight_kg: number };
+
+export type WeightSummary = {
+  initial: WeightPoint | null;
+  current: WeightPoint | null;
+  target_weight_kg: number | null;
+  change_kg: number | null;
+  to_target_kg: number | null;
+  change_7d_kg: number | null;
+  change_30d_kg: number | null;
+  bmi: number | null;
+  trend: (WeightPoint & { avg_7d_kg: number })[];
+  notice: string;
+};
+
+/** 带符号的变化量，例如 "+0.4" / "−1.2" / "0" */
+export function signedKg(value: number): string {
+  if (value === 0) return "0";
+  return `${value > 0 ? "+" : "−"}${Math.abs(value).toFixed(1)}`;
+}
+
+/** 本地日期 yyyy-mm-dd，用于 <input type="date"> */
+export function todayLocalDate(): string {
+  return toDateTimeLocal(new Date()).slice(0, 10);
+}
+
 export function toDateTimeLocal(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
