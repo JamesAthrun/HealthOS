@@ -9,7 +9,6 @@ export default function RecordsPage() {
       <Link href="/exercises/">运动记录</Link>
       <Link href="/sleeps/">睡眠记录</Link>
       <Link href="/weights/">体重记录</Link>
-      <Link href="/">返回首页</Link>
     </div>
   );
 }

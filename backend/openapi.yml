@@ -1304,6 +1304,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/food-preferences:
+    get:
+      tags:
+      - food preferences
+      summary: List Food Preferences
+      operationId: list_food_preferences_api_food_preferences_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/FoodPreferenceOut'
+                type: array
+                title: Response List Food Preferences Api Food Preferences Get
+      security:
+      - SessionCookie: []
+    put:
+      tags:
+      - food preferences
+      summary: Set Food Preference
+      operationId: set_food_preference_api_food_preferences_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FoodPreferenceIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FoodPreferenceOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/food-preferences/frequent:
+    get:
+      tags:
+      - food preferences
+      summary: List Frequent Foods
+      operationId: list_frequent_foods_api_food_preferences_frequent_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/FrequentFood'
+                type: array
+                title: Response List Frequent Foods Api Food Preferences Frequent Get
+      security:
+      - SessionCookie: []
+  /api/food-preferences/{preference_id}:
+    delete:
+      tags:
+      - food preferences
+      summary: Delete Food Preference
+      operationId: delete_food_preference_api_food_preferences__preference_id__delete
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: preference_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Preference Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/health:
     get:
       summary: Health
@@ -1405,6 +1492,12 @@ components:
           type: array
           maxItems: 8
           title: Limitations
+        meal_plan:
+          items:
+            $ref: '#/components/schemas/MealPlanGroup'
+          type: array
+          maxItems: 4
+          title: Meal Plan
       additionalProperties: false
       type: object
       required:
@@ -1877,6 +1970,64 @@ components:
       - kcal
       - id
       title: FoodItemOut
+    FoodPreferenceIn:
+      properties:
+        food_name:
+          type: string
+          maxLength: 50
+          minLength: 1
+          title: Food Name
+        sentiment:
+          type: string
+          enum:
+          - like
+          - dislike
+          title: Sentiment
+      additionalProperties: false
+      type: object
+      required:
+      - food_name
+      - sentiment
+      title: FoodPreferenceIn
+    FoodPreferenceOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        food_name:
+          type: string
+          title: Food Name
+        sentiment:
+          type: string
+          enum:
+          - like
+          - dislike
+          title: Sentiment
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - food_name
+      - sentiment
+      - updated_at
+      title: FoodPreferenceOut
+    FrequentFood:
+      properties:
+        food_name:
+          type: string
+          title: Food Name
+        count:
+          type: integer
+          title: Count
+      type: object
+      required:
+      - food_name
+      - count
+      title: FrequentFood
     GenerateAdviceIn:
       properties:
         for_date:
@@ -2136,6 +2287,59 @@ components:
       - height
       - created_at
       title: MealPhotoOut
+    MealPlanGroup:
+      properties:
+        meal_type:
+          type: string
+          enum:
+          - breakfast
+          - lunch
+          - dinner
+          - snack
+          title: Meal Type
+        items:
+          items:
+            $ref: '#/components/schemas/MealPlanItem'
+          type: array
+          maxItems: 3
+          minItems: 1
+          title: Items
+        reason:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - meal_type
+      - items
+      - reason
+      title: MealPlanGroup
+    MealPlanItem:
+      properties:
+        name:
+          type: string
+          maxLength: 50
+          minLength: 1
+          title: Name
+        portion:
+          type: string
+          maxLength: 30
+          minLength: 1
+          title: Portion
+        approx_kcal:
+          type: integer
+          maximum: 3000.0
+          minimum: 0.0
+          title: Approx Kcal
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - portion
+      - approx_kcal
+      title: MealPlanItem
     MealRecognition:
       properties:
         meal_type:

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
@@ -57,12 +56,9 @@ export default function PasswordPage() {
         再输入一次新密码
         <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
       </label>
-      <div className="stack">
-        <button type="submit" disabled={submitting}>
-          {submitting ? "保存中…" : "保存"}
-        </button>
-        <Link href="/">返回首页</Link>
-      </div>
+      <button type="submit" disabled={submitting}>
+        {submitting ? "保存中…" : "保存"}
+      </button>
     </form>
   );
 }

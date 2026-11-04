@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError, type AuditEvent, type Me } from "@/lib/api";
@@ -171,7 +170,6 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
         )}
       </section>
 
-      <Link href="/">返回首页</Link>
     </div>
   );
 }

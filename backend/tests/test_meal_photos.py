@@ -13,6 +13,60 @@ def test_ai_response_code_fence_is_stripped():
     assert _strip_code_fence(' {"a": 1} ') == '{"a": 1}'
 
 
+def test_ai_busy_503_backs_off_and_retries_keeping_json_mode(monkeypatch):
+    import httpx
+
+    import app.meal_ai as meal_ai
+
+    sent = []
+    waits = []
+    good = {
+        "meal_type": "lunch",
+        "food_items": [{"name": "米饭", "quantity": 1, "unit": "碗", "kcal": 200, "confidence": 0.8}],
+        "overall_confidence": 0.8,
+    }
+    # 前两次繁忙，第三次成功：繁忙重试不占用“输出不合格”的那次重试
+    statuses = [503, 429, 200]
+
+    class FakeClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def post(self, url, headers, json):
+            sent.append(dict(json))
+            request = httpx.Request("POST", url)
+            code = statuses[len(sent) - 1]
+            if code != 200:
+                return httpx.Response(code, request=request, json={"error": {"message": "busy"}})
+            import json as _json
+            return httpx.Response(200, request=request, json={"choices": [{"message": {"content": _json.dumps(good)}}]})
+
+    monkeypatch.setattr(meal_ai.httpx, "Client", FakeClient)
+    monkeypatch.setattr(meal_ai, "_sleep", waits.append)
+    settings = get_settings().model_copy(update={"deepseek_api_key": "test-key"})
+    assert meal_ai.recognize_meal(b"jpeg", settings).food_items[0].name == "米饭"
+    assert waits == [1.0, 3.0]
+    assert all("response_format" in body for body in sent)
+
+    # 一直繁忙：等两次后放弃，报 503
+    sent.clear()
+    waits.clear()
+    statuses[:] = [503] * 10
+    try:
+        meal_ai.recognize_meal(b"jpeg", settings)
+        raise AssertionError("expected AIProviderError")
+    except meal_ai.AIProviderError as exc:
+        assert exc.code == "AI_HTTP_503"
+    assert waits == [1.0, 3.0]
+    assert len(sent) == 4  # 1 次 + 2 次繁忙重试 + 1 次常规重试
+
+
 def test_ai_meal_type_variants_are_normalized():
     item = {"name": "米饭", "quantity": 1, "unit": "碗", "kcal": 200, "confidence": 0.8}
     base = {"food_items": [item], "overall_confidence": 0.8, "warnings": []}

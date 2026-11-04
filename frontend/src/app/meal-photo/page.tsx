@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { api, ApiError, uploadApi } from "@/lib/api";
 import { type FoodItemInput, localInputToIso, toDateTimeLocal } from "@/lib/health";
 import { useMe } from "@/lib/useMe";
+import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
 
 type Consent = { granted: boolean; granted_at: string | null };
 type Photo = { id: string; width: number; height: number; byte_size: number };
@@ -35,6 +36,7 @@ const EMPTY_ITEM: FoodItemInput = {
 
 export default function MealPhotoPage() {
   const me = useMe();
+  const foodPrefs = useFoodPreferences(Boolean(me));
   const [consent, setConsent] = useState<Consent | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
@@ -252,6 +254,7 @@ export default function MealPhotoPage() {
           {items.map((item, index) => (
             <div className="food-row stack" key={index}>
               <label>食物名称<input required value={item.name} onChange={(event) => updateItem(index, "name", event.target.value)} /></label>
+              <FoodPrefButtons name={item.name} current={foodPrefs.find(item.name)?.sentiment} onToggle={foodPrefs.toggle} />
               <label>份量<input type="number" min="0.01" step="0.01" required value={item.quantity} onChange={(event) => updateItem(index, "quantity", event.target.value)} /></label>
               <label>单位<input required value={item.unit} onChange={(event) => updateItem(index, "unit", event.target.value)} /></label>
               <label>热量（kcal）<input type="number" min="0" step="0.1" required value={item.kcal} onChange={(event) => updateItem(index, "kcal", event.target.value)} /></label>
@@ -273,7 +276,6 @@ export default function MealPhotoPage() {
           <button type="button" className="secondary" onClick={() => selectFile(null)}>继续拍照记录</button>
         </section>
       )}
-      <Link href="/">返回首页</Link>
     </div>
   );
 }

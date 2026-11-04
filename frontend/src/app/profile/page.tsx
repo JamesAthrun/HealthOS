@@ -166,7 +166,6 @@ function ProfileForm({ me }: { me: Me }) {
         </div>
       )}
       <button type="submit" disabled={submitting}>{submitting ? "保存中…" : "保存并计算参考值"}</button>
-      <Link href="/">返回首页</Link>
     </form>
   );
 }

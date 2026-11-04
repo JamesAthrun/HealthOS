@@ -193,6 +193,25 @@ class WeightLog(Base):
     )
 
 
+class FoodPreference(Base):
+    __tablename__ = "food_preferences"
+    __table_args__ = (
+        UniqueConstraint("user_id", "food_name", name="uq_food_preferences_user_food"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    # 规范化后的食物名（NFKC、去首尾空格、英文小写）
+    food_name: Mapped[str] = mapped_column(String(50))
+    sentiment: Mapped[str] = mapped_column(String(8))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class MealPhoto(Base):
     __tablename__ = "meal_photos"
     __table_args__ = (

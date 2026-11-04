@@ -6,11 +6,13 @@ import { type FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { signedKg, todayLocalDate, type WeightLog, type WeightSummary } from "@/lib/health";
 import { useMe } from "@/lib/useMe";
+import { useConfirm } from "@/lib/confirm";
 
 const EMPTY_FORM = { measured_on: "", weight_kg: "", waist_cm: "", body_fat_pct: "", notes: "" };
 
 export default function WeightsPage() {
   const me = useMe();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<WeightLog[]>([]);
   const [summary, setSummary] = useState<WeightSummary | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export default function WeightsPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm("确认删除这条体重记录？")) return;
+    if (!(await confirm({ title: "删除这条体重记录？", message: "删除后无法恢复。", confirmText: "删除", danger: true }))) return;
     try {
       await api(`/weights/${id}`, { method: "DELETE" });
       await load();
@@ -141,7 +143,6 @@ export default function WeightsPage() {
         ))}
       </section>
       <Link href="/profile/">在健康档案中设置目标体重</Link>
-      <Link href="/">返回首页</Link>
     </div>
   );
 }

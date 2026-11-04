@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import time
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -9,6 +10,20 @@ from app.config import Settings
 
 PROMPT_VERSION = "meal-photo-v2"
 logger = logging.getLogger(__name__)
+
+# DeepSeek 繁忙时会随机快速返回 503（或限流 429）；稍等再试通常就能成功。
+# 这类重试不占用“输出不合格”的重试次数。
+BUSY_STATUSES = {429, 503}
+BUSY_BACKOFF_SECONDS = (1.0, 3.0)
+_sleep = time.sleep  # 测试中替换，避免真的等待
+
+
+def busy_backoff(busy_retries: int) -> bool:
+    """还能再重试就等待并返回 True。"""
+    if busy_retries >= len(BUSY_BACKOFF_SECONDS):
+        return False
+    _sleep(BUSY_BACKOFF_SECONDS[busy_retries])
+    return True
 
 MEAL_TYPE_ALIASES = {
     "breakfast": "breakfast", "早餐": "breakfast", "早饭": "breakfast", "brunch": "breakfast",
@@ -103,7 +118,9 @@ def recognize_meal(image_bytes: bytes, settings: Settings, hint: str | None = No
         "max_tokens": 4000,
     }
     last_code = "AI_INVALID_RESPONSE"
-    for attempt in range(2):
+    attempt = 0
+    busy_retries = 0
+    while attempt < 2:
         finish_reason = None
         try:
             with httpx.Client(timeout=settings.deepseek_timeout_seconds) as client:
@@ -120,10 +137,14 @@ def recognize_meal(image_bytes: bytes, settings: Settings, hint: str | None = No
             last_code = "AI_TIMEOUT"
             logger.warning("meal AI attempt %d: timeout", attempt + 1)
         except httpx.HTTPStatusError as exc:
-            last_code = f"AI_HTTP_{exc.response.status_code}"
-            logger.warning("meal AI attempt %d: HTTP %s", attempt + 1, exc.response.status_code)
-            if exc.response.status_code in {400, 401, 403}:
+            status_code = exc.response.status_code
+            last_code = f"AI_HTTP_{status_code}"
+            logger.warning("meal AI attempt %d: HTTP %s", attempt + 1, status_code)
+            if status_code in {400, 401, 403}:
                 break
+            if status_code in BUSY_STATUSES and busy_backoff(busy_retries):
+                busy_retries += 1
+                continue
         except ValidationError as exc:
             last_code = "AI_INVALID_RESPONSE"
             # 只记录字段位置和错误类型，不记录识别出的具体内容
@@ -132,6 +153,7 @@ def recognize_meal(image_bytes: bytes, settings: Settings, hint: str | None = No
         except (KeyError, TypeError, json.JSONDecodeError) as exc:
             last_code = "AI_INVALID_RESPONSE"
             logger.warning("meal AI attempt %d: unparsable finish=%s %s", attempt + 1, finish_reason, type(exc).__name__)
+        attempt += 1
     raise AIProviderError(last_code)
 
 

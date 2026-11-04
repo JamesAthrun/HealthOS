@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
@@ -11,6 +10,7 @@ import {
   toDateTimeLocal,
 } from "@/lib/health";
 import { useMe } from "@/lib/useMe";
+import { useConfirm } from "@/lib/confirm";
 
 function defaultSleepTimes() {
   const ended = new Date();
@@ -25,6 +25,7 @@ function duration(startedAt: string, endedAt: string): string {
 
 export default function SleepsPage() {
   const me = useMe();
+  const confirm = useConfirm();
   const initial = defaultSleepTimes();
   const [rows, setRows] = useState<Sleep[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -92,7 +93,7 @@ export default function SleepsPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm("确认删除这条睡眠记录？")) return;
+    if (!(await confirm({ title: "删除这条睡眠记录？", message: "删除后无法恢复。", confirmText: "删除", danger: true }))) return;
     try {
       await api(`/sleeps/${id}`, { method: "DELETE" });
       await load();
@@ -139,7 +140,6 @@ export default function SleepsPage() {
           </article>
         ))}
       </section>
-      <Link href="/records/">返回记录</Link>
     </div>
   );
 }
