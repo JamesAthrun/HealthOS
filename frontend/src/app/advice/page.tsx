@@ -260,7 +260,6 @@ export default function AdvicePage() {
         </article>;
       })}
       <p className="muted">HealthOS 规划仅供健康习惯参考，不是医疗建议。</p>
-      <Link href="/">返回首页</Link>
     </div>
   );
 }

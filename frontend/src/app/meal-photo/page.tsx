@@ -276,7 +276,6 @@ export default function MealPhotoPage() {
           <button type="button" className="secondary" onClick={() => selectFile(null)}>继续拍照记录</button>
         </section>
       )}
-      <Link href="/">返回首页</Link>
     </div>
   );
 }

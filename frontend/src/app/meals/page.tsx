@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
@@ -11,6 +10,7 @@ import {
   toDateTimeLocal,
 } from "@/lib/health";
 import { useMe } from "@/lib/useMe";
+import { useConfirm } from "@/lib/confirm";
 import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
 
 type FoodForm = {
@@ -42,6 +42,7 @@ const MEAL_LABELS: Record<Meal["meal_type"], string> = {
 
 export default function MealsPage() {
   const me = useMe();
+  const confirm = useConfirm();
   const [meals, setMeals] = useState<Meal[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [eatenAt, setEatenAt] = useState(toDateTimeLocal(new Date()));
@@ -132,7 +133,7 @@ export default function MealsPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm("确认删除这条饮食记录？")) return;
+    if (!(await confirm({ title: "删除这条饮食记录？", message: "删除后无法恢复。", confirmText: "删除", danger: true }))) return;
     try {
       await api(`/meals/${id}`, { method: "DELETE" });
       await load();
@@ -200,7 +201,6 @@ export default function MealsPage() {
           </article>
         ))}
       </section>
-      <Link href="/records/">返回记录</Link>
     </div>
   );
 }

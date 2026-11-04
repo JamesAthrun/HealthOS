@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
 import { useMe } from "@/lib/useMe";
+import { useConfirm } from "@/lib/confirm";
 import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
 
 type Category = "limitation" | "preference" | "tried" | "temporary";
@@ -25,6 +26,7 @@ const LABELS: Record<Category, string> = {
 
 export default function NotesPage() {
   const me = useMe();
+  const confirm = useConfirm();
   const [notes, setNotes] = useState<Note[]>([]);
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<Category>("preference");
@@ -60,6 +62,7 @@ export default function NotesPage() {
   }
 
   async function remove(id: string) {
+    if (!(await confirm({ title: "删除这条记录？", message: "删除后 AI 规划将不再参考它。", confirmText: "删除", danger: true }))) return;
     setError("");
     try {
       await api(`/notes/${id}`, { method: "DELETE" });
@@ -130,7 +133,6 @@ export default function NotesPage() {
         )}
       </section>
       <Link href="/advice/">返回健康规划</Link>
-      <Link href="/">返回首页</Link>
     </div>
   );
 }

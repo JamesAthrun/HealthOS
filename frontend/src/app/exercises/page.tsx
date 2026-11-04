@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
@@ -11,6 +10,7 @@ import {
   toDateTimeLocal,
 } from "@/lib/health";
 import { useMe } from "@/lib/useMe";
+import { useConfirm } from "@/lib/confirm";
 
 const INTENSITY_LABELS: Record<Exercise["intensity"], string> = {
   low: "低",
@@ -32,6 +32,7 @@ const COMMON_EXERCISE_TYPES = [
 
 export default function ExercisesPage() {
   const me = useMe();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<Exercise[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [type, setType] = useState("");
@@ -105,7 +106,7 @@ export default function ExercisesPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm("确认删除这条运动记录？")) return;
+    if (!(await confirm({ title: "删除这条运动记录？", message: "删除后无法恢复。", confirmText: "删除", danger: true }))) return;
     try {
       await api(`/exercises/${id}`, { method: "DELETE" });
       await load();
@@ -167,7 +168,6 @@ export default function ExercisesPage() {
           </article>
         ))}
       </section>
-      <Link href="/records/">返回记录</Link>
     </div>
   );
 }
