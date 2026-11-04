@@ -7,6 +7,7 @@ import { api, ApiError, uploadApi } from "@/lib/api";
 import { type FoodItemInput, localInputToIso, toDateTimeLocal } from "@/lib/health";
 import { useMe } from "@/lib/useMe";
 import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
+import { type DraftItem, formatNutrient, NutritionCard, NUTRIENTS, OPTIONAL_NUTRIENTS, scaleItem, toFoodItem } from "@/lib/nutrition";
 
 type Consent = { granted: boolean; granted_at: string | null };
 type Photo = { id: string; width: number; height: number; byte_size: number };
@@ -44,7 +45,7 @@ export default function MealPhotoPage() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [mealType, setMealType] = useState<MealType>("lunch");
   const [eatenAt, setEatenAt] = useState(() => toDateTimeLocal(new Date()));
-  const [items, setItems] = useState<FoodItemInput[]>([]);
+  const [items, setItems] = useState<DraftItem[]>([]);
   const [notes, setNotes] = useState("");
   const [hint, setHint] = useState("");
   const [error, setError] = useState("");
@@ -95,6 +96,9 @@ export default function MealPhotoPage() {
       protein_g: item.protein_g,
       carbs_g: item.carbs_g,
       fat_g: item.fat_g,
+      fiber_g: item.fiber_g ?? null,
+      sugar_g: item.sugar_g ?? null,
+      sodium_mg: item.sodium_mg ?? null,
     })));
   }
 
@@ -141,8 +145,10 @@ export default function MealPhotoPage() {
   function updateItem(index: number, field: keyof FoodItemInput, value: string) {
     setItems((current) => current.map((item, itemIndex) => {
       if (itemIndex !== index) return item;
-      const numeric = field === "name" || field === "unit" ? value : Number(value);
-      return { ...item, [field]: numeric };
+      if (field === "name" || field === "unit") return { ...item, [field]: value };
+      if (field === "quantity") return scaleItem(item, Number(value));
+      if (OPTIONAL_NUTRIENTS.has(field) && value === "") return { ...item, [field]: null };
+      return { ...item, [field]: Number(value) };
     }));
   }
 
@@ -158,7 +164,7 @@ export default function MealPhotoPage() {
           eaten_at: localInputToIso(eatenAt),
           meal_type: mealType,
           notes: notes || null,
-          food_items: items,
+          food_items: items.map(toFoodItem),
         },
       });
       setConfirmed(true);
@@ -218,6 +224,7 @@ export default function MealPhotoPage() {
             <h2>检查识别结果</h2>
           </div>
           <p className="muted">整体可信度：{Math.round(analysis.result.overall_confidence * 100)}%</p>
+          <NutritionCard items={items} />
           {analysis.result.warnings.length > 0 && (
             <ul className="warning-list">
               {analysis.result.warnings.map((warning) => <li key={warning}>{warning}</li>)}
@@ -258,6 +265,27 @@ export default function MealPhotoPage() {
               <label>份量<input type="number" min="0.01" step="0.01" required value={item.quantity} onChange={(event) => updateItem(index, "quantity", event.target.value)} /></label>
               <label>单位<input required value={item.unit} onChange={(event) => updateItem(index, "unit", event.target.value)} /></label>
               <label>热量（kcal）<input type="number" min="0" step="0.1" required value={item.kcal} onChange={(event) => updateItem(index, "kcal", event.target.value)} /></label>
+              <details className="nutrient-details">
+                <summary>
+                  营养素：蛋白 {formatNutrient(item.protein_g, "g")} · 碳水 {formatNutrient(item.carbs_g, "g")} · 脂肪 {formatNutrient(item.fat_g, "g")}
+                </summary>
+                <div className="nutrient-inputs">
+                  {NUTRIENTS.map(({ key, label, unit }) => (
+                    <label key={key}>
+                      {label}（{unit}）
+                      <input
+                        type="number"
+                        min="0"
+                        step={unit === "mg" ? "1" : "0.1"}
+                        required={!OPTIONAL_NUTRIENTS.has(key)}
+                        value={item[key] ?? ""}
+                        placeholder={OPTIONAL_NUTRIENTS.has(key) ? "未知" : undefined}
+                        onChange={(event) => updateItem(index, key, event.target.value)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </details>
               <div className="actions">
                 <button type="button" className="danger" onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}>删除此项</button>
               </div>

@@ -135,6 +135,10 @@ class FoodItem(Base):
     protein_g: Mapped[float] = mapped_column(Float, default=0)
     carbs_g: Mapped[float] = mapped_column(Float, default=0)
     fat_g: Mapped[float] = mapped_column(Float, default=0)
+    # 可选的粗略估算；旧记录为空
+    fiber_g: Mapped[float | None] = mapped_column(Float)
+    sugar_g: Mapped[float | None] = mapped_column(Float)
+    sodium_mg: Mapped[float | None] = mapped_column(Float)
 
 
 class Exercise(Base):

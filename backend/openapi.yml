@@ -1909,6 +1909,27 @@ components:
           minimum: 0.0
           title: Fat G
           default: 0
+        fiber_g:
+          anyOf:
+          - type: number
+            maximum: 200.0
+            minimum: 0.0
+          - type: 'null'
+          title: Fiber G
+        sugar_g:
+          anyOf:
+          - type: number
+            maximum: 1000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Sugar G
+        sodium_mg:
+          anyOf:
+          - type: number
+            maximum: 50000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Sodium Mg
       additionalProperties: false
       type: object
       required:
@@ -1957,6 +1978,27 @@ components:
           minimum: 0.0
           title: Fat G
           default: 0
+        fiber_g:
+          anyOf:
+          - type: number
+            maximum: 200.0
+            minimum: 0.0
+          - type: 'null'
+          title: Fiber G
+        sugar_g:
+          anyOf:
+          - type: number
+            maximum: 1000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Sugar G
+        sodium_mg:
+          anyOf:
+          - type: number
+            maximum: 50000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Sodium Mg
         id:
           type: string
           format: uuid
@@ -2655,6 +2697,27 @@ components:
           minimum: 0.0
           title: Fat G
           default: 0
+        fiber_g:
+          anyOf:
+          - type: number
+            maximum: 200.0
+            minimum: 0.0
+          - type: 'null'
+          title: Fiber G
+        sugar_g:
+          anyOf:
+          - type: number
+            maximum: 1000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Sugar G
+        sodium_mg:
+          anyOf:
+          - type: number
+            maximum: 50000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Sodium Mg
         confidence:
           type: number
           maximum: 1.0

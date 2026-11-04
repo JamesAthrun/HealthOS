@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from app.config import Settings
 
-PROMPT_VERSION = "meal-photo-v2"
+PROMPT_VERSION = "meal-photo-v3"
 logger = logging.getLogger(__name__)
 
 # DeepSeek 繁忙时会随机快速返回 503（或限流 429）；稍等再试通常就能成功。
@@ -43,6 +43,10 @@ class RecognizedFoodItem(BaseModel):
     protein_g: float = Field(default=0, ge=0, le=1000)
     carbs_g: float = Field(default=0, ge=0, le=1000)
     fat_g: float = Field(default=0, ge=0, le=1000)
+    # 可选：模型漏填或给 null 不应让整次识别失败
+    fiber_g: float | None = Field(default=None, ge=0, le=200)
+    sugar_g: float | None = Field(default=None, ge=0, le=1000)
+    sodium_mg: float | None = Field(default=None, ge=0, le=50000)
     confidence: float = Field(ge=0, le=1)
 
 
@@ -80,7 +84,9 @@ class AIProviderError(RuntimeError):
 SYSTEM_PROMPT = """你是 HealthOS 的餐食照片结构化识别器。只根据照片中可见内容估算，不能虚构看不见的配料。
 返回一个 JSON 对象，且只能包含 meal_type、food_items、overall_confidence、warnings。
 meal_type 只能是英文小写的 breakfast、lunch、dinner、snack 之一；判断不出时用 snack。
-food_items 每项必须包含 name、quantity、unit、kcal、protein_g、carbs_g、fat_g、confidence。
+food_items 每项必须包含 name、quantity、unit、kcal、protein_g、carbs_g、fat_g、fiber_g、sugar_g、sodium_mg、confidence。
+数值是该项整份的总量：蛋白质/碳水/脂肪/膳食纤维/糖以克计，钠以毫克计（含烹饪用盐和酱汁的合理估计）；kcal 应大致等于 4×蛋白质 + 4×碳水 + 9×脂肪。
+fiber_g、sugar_g、sodium_mg 实在无法估计时可以为 null。
 confidence 和 overall_confidence 是 0 到 1 之间的小数；warnings 最多 5 条。
 数值是待用户确认的粗略估算。份量或菜品不确定时降低 confidence，并把简短中文说明放入 warnings。
 如果用户提供了更正说明，按说明调整菜品、份量或餐次，并据此重新估算数值；说明与照片明显矛盾时在 warnings 里指出。
