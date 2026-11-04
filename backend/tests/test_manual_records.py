@@ -72,6 +72,9 @@ def test_meal_crud_and_food_item_replacement():
                     "protein_g": 3.9,
                     "carbs_g": 38,
                     "fat_g": 0.5,
+                    "fiber_g": 0.6,
+                    "sugar_g": 0.1,
+                    "sodium_mg": 2,
                 }
             ],
         },
@@ -79,6 +82,7 @@ def test_meal_crud_and_food_item_replacement():
     assert created.status_code == 201
     meal_id = created.json()["id"]
     assert created.json()["status"] == "confirmed"
+    assert created.json()["food_items"][0]["sodium_mg"] == 2
     assert len(client.get("/api/meals").json()) == 1
 
     patched = client.patch(
@@ -98,6 +102,9 @@ def test_meal_crud_and_food_item_replacement():
     assert patched.status_code == 200
     assert patched.json()["notes"] is None
     assert [item["name"] for item in patched.json()["food_items"]] == ["面条"]
+    # 未填的可选营养素保持为空，而不是 0
+    assert patched.json()["food_items"][0]["fiber_g"] is None
+    assert patched.json()["food_items"][0]["sodium_mg"] is None
     assert client.delete(f"/api/meals/{meal_id}").status_code == 204
     assert client.get(f"/api/meals/{meal_id}").status_code == 404
 

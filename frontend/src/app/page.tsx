@@ -93,7 +93,7 @@ export default function HomePage() {
               <article className="metric">
                 <span>记录</span>
                 <strong>{dashboard.summary.meal_count} <small>餐</small></strong>
-                <small>蛋白质 {dashboard.summary.protein_g} g</small>
+                <small>蛋白 {dashboard.summary.protein_g} · 碳水 {dashboard.summary.carbs_g} · 脂肪 {dashboard.summary.fat_g} g</small>
               </article>
               <Link className="metric" href="/weights/">
                 <span>体重</span>

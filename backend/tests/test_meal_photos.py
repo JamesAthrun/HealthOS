@@ -77,6 +77,18 @@ def test_ai_meal_type_variants_are_normalized():
     assert unknown.warnings == ["未能判断餐次，请确认"]
 
 
+def test_ai_optional_nutrients_may_be_missing_or_null():
+    item = {"name": "米饭", "quantity": 1, "unit": "碗", "kcal": 200, "confidence": 0.8}
+    base = {"meal_type": "lunch", "overall_confidence": 0.8}
+    missing = MealRecognition.model_validate({**base, "food_items": [item]})
+    assert missing.food_items[0].sodium_mg is None
+    with_values = MealRecognition.model_validate(
+        {**base, "food_items": [{**item, "fiber_g": 0.6, "sugar_g": None, "sodium_mg": 5}]}
+    )
+    assert with_values.food_items[0].fiber_g == 0.6
+    assert with_values.food_items[0].sugar_g is None
+
+
 def authenticated(username: str):
     create_user(username)
     client = new_client()

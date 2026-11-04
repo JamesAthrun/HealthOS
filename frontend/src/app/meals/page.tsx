@@ -12,6 +12,7 @@ import {
 import { useMe } from "@/lib/useMe";
 import { useConfirm } from "@/lib/confirm";
 import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
+import { nutritionLine } from "@/lib/nutrition";
 
 type FoodForm = {
   name: string;
@@ -21,6 +22,9 @@ type FoodForm = {
   protein_g: string;
   carbs_g: string;
   fat_g: string;
+  fiber_g: string;
+  sugar_g: string;
+  sodium_mg: string;
 };
 
 const EMPTY_FOOD: FoodForm = {
@@ -31,7 +35,13 @@ const EMPTY_FOOD: FoodForm = {
   protein_g: "0",
   carbs_g: "0",
   fat_g: "0",
+  fiber_g: "",
+  sugar_g: "",
+  sodium_mg: "",
 };
+
+const optional = (value: number | null | undefined) => (value === null || value === undefined ? "" : String(value));
+const optionalNumber = (value: string) => (value === "" ? null : Number(value));
 
 const MEAL_LABELS: Record<Meal["meal_type"], string> = {
   breakfast: "早餐",
@@ -97,6 +107,9 @@ export default function MealsPage() {
         protein_g: String(food.protein_g),
         carbs_g: String(food.carbs_g),
         fat_g: String(food.fat_g),
+        fiber_g: optional(food.fiber_g),
+        sugar_g: optional(food.sugar_g),
+        sodium_mg: optional(food.sodium_mg),
       })),
     );
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -118,6 +131,9 @@ export default function MealsPage() {
         protein_g: Number(food.protein_g || 0),
         carbs_g: Number(food.carbs_g || 0),
         fat_g: Number(food.fat_g || 0),
+        fiber_g: optionalNumber(food.fiber_g),
+        sugar_g: optionalNumber(food.sugar_g),
+        sodium_mg: optionalNumber(food.sodium_mg),
       })),
     };
     try {
@@ -173,6 +189,14 @@ export default function MealsPage() {
             <label>蛋白质 g<input type="number" min="0" step="0.1" value={food.protein_g} onChange={(e) => updateFood(index, "protein_g", e.target.value)} /></label>
             <label>碳水 g<input type="number" min="0" step="0.1" value={food.carbs_g} onChange={(e) => updateFood(index, "carbs_g", e.target.value)} /></label>
             <label>脂肪 g<input type="number" min="0" step="0.1" value={food.fat_g} onChange={(e) => updateFood(index, "fat_g", e.target.value)} /></label>
+            <details className="nutrient-details">
+              <summary>更多营养素（可选）</summary>
+              <div className="nutrient-inputs">
+                <label>膳食纤维 g<input type="number" min="0" step="0.1" placeholder="未知" value={food.fiber_g} onChange={(e) => updateFood(index, "fiber_g", e.target.value)} /></label>
+                <label>糖 g<input type="number" min="0" step="0.1" placeholder="未知" value={food.sugar_g} onChange={(e) => updateFood(index, "sugar_g", e.target.value)} /></label>
+                <label>钠 mg<input type="number" min="0" step="1" placeholder="未知" value={food.sodium_mg} onChange={(e) => updateFood(index, "sodium_mg", e.target.value)} /></label>
+              </div>
+            </details>
             {foods.length > 1 && <button type="button" className="secondary" onClick={() => setFoods((current) => current.filter((_, i) => i !== index))}>移除这项</button>}
           </div>
         ))}
@@ -187,6 +211,7 @@ export default function MealsPage() {
         {meals.length === 0 ? <p className="muted">还没有饮食记录</p> : meals.map((meal) => (
           <article className="record-card" key={meal.id}>
             <strong>{MEAL_LABELS[meal.meal_type]} · {formatLocalDateTime(meal.eaten_at)}</strong>
+            <p className="muted">{nutritionLine(meal.food_items)}</p>
             {meal.food_items.map((food) => (
               <div className="pref-row" key={food.id}>
                 <span>{food.name}，{food.quantity} {food.unit}，{food.kcal} kcal</span>

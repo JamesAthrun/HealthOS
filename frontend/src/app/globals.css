@@ -290,6 +290,77 @@ button.danger {
   border-radius: 8px;
 }
 
+.nutrition-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfdfc;
+}
+
+.nutrition-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.nutrition-head strong {
+  color: var(--text);
+  font-size: 24px;
+}
+
+.nutrition-head small {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.macro-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1ef;
+}
+
+.nutrient-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 8px;
+}
+
+.nutrient-grid > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.nutrient-grid small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.nutrient-grid i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-radius: 2px;
+}
+
+.nutrient-details summary {
+  padding: 6px 0;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.nutrient-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 8px;
+  margin-top: 6px;
+}
+
 .advice-action {
   padding: 12px;
   border: 1px solid var(--border);

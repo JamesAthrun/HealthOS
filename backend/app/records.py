@@ -44,6 +44,9 @@ class FoodItemIn(BaseModel):
     protein_g: float = Field(default=0, ge=0, le=1000)
     carbs_g: float = Field(default=0, ge=0, le=1000)
     fat_g: float = Field(default=0, ge=0, le=1000)
+    fiber_g: float | None = Field(default=None, ge=0, le=200)
+    sugar_g: float | None = Field(default=None, ge=0, le=1000)
+    sodium_mg: float | None = Field(default=None, ge=0, le=50000)
 
 
 class FoodItemOut(FoodItemIn):
