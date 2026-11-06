@@ -16,7 +16,7 @@ export default function WeightsPage() {
       title="体重"
       kind="weight"
       load={load}
-      emptyText="还没有体重记录，点右上角“＋ 添加”记录今天的体重。"
+      emptyText="还没有体重记录，点右下角“＋ 记体重”记录今天的体重。"
       top={(version) => <SummaryLoader version={version} />}
     />
   );

@@ -93,11 +93,10 @@ export type Entry =
   | (EntryBase & { kind: "weight"; row: WeightLog });
 
 export function mealEntry(row: Meal): Entry {
-  const sum = (key: "protein_g" | "carbs_g" | "fat_g") => Math.round(row.food_items.reduce((s, f) => s + f[key], 0));
   return {
     kind: "meal", id: row.id, row, day: dayKey(row.eaten_at), sortAt: row.eaten_at,
     title: `${MEAL_LABELS[row.meal_type]} · ${row.food_items.map((f) => f.name).join("、")}`,
-    detail: `${timeOf(row.eaten_at)} · 蛋白 ${sum("protein_g")} · 碳水 ${sum("carbs_g")} · 脂肪 ${sum("fat_g")} g`,
+    detail: timeOf(row.eaten_at),
     side: `${mealKcal(row)} kcal`,
   };
 }

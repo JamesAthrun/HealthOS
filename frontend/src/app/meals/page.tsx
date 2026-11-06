@@ -13,7 +13,7 @@ export default function MealsPage() {
       title="饮食"
       kind="meal"
       load={load}
-      emptyText="还没有饮食记录。点右上角“＋ 添加”，可以拍照、打字或说一句话。"
+      emptyText="还没有饮食记录。点右下角“＋ 记饮食”，可以拍照、打字或说一句话。"
     />
   );
 }
