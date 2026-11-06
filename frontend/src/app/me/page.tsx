@@ -35,6 +35,7 @@ export default function MePage() {
       <section className="card">
         <h2>健康资料</h2>
         <ul className="menu-list">
+          <li><Link href="/targets/">营养目标（热量、蛋白质、钓…）</Link></li>
           <li><Link href="/profile/">健康档案与热量参考值</Link></li>
           <li><Link href="/weights/">体重与目标</Link></li>
           <li><Link href="/notes/">关于我与食物偏好</Link></li>

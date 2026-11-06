@@ -95,6 +95,13 @@ class Profile(Base):
     dietary_preferences: Mapped[str | None] = mapped_column(Text)
     allergies: Mapped[str | None] = mapped_column(Text)
     daily_kcal_target: Mapped[int | None] = mapped_column(Integer)
+    # 营养目标；为空表示使用自动计算的参考值
+    protein_target_g: Mapped[float | None] = mapped_column(Float)
+    carbs_target_g: Mapped[float | None] = mapped_column(Float)
+    fat_target_g: Mapped[float | None] = mapped_column(Float)
+    fiber_target_g: Mapped[float | None] = mapped_column(Float)
+    sugar_max_g: Mapped[float | None] = mapped_column(Float)
+    sodium_max_mg: Mapped[float | None] = mapped_column(Float)
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, server_default=func.now(), onupdate=func.now()
     )

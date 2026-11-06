@@ -74,7 +74,9 @@ def put_profile(body: ProfileIn, request: Request, user: CurrentUser, db: DbSess
     if profile is None:
         profile = Profile(user_id=user.id)
         db.add(profile)
-    for field, value in body.model_dump(exclude={"weight_kg"}).items():
+    # 热量目标已移到“营养目标”页；只有请求里带了这个字段才更新，避免保存档案时把它清空
+    exclude = {"weight_kg"} if "daily_kcal_target" in body.model_fields_set else {"weight_kg", "daily_kcal_target"}
+    for field, value in body.model_dump(exclude=exclude).items():
         setattr(profile, field, value)
     if body.weight_kg is not None and body.weight_kg != profile.weight_kg:
         upsert_weight(db, user.id, _today(user), body.weight_kg)
@@ -115,3 +117,58 @@ def kcal_reference(user: CurrentUser, db: DbSession) -> KcalReferenceOut:
         weight_loss_kcal=weight_loss,
         bmi=round(bmi, 1),
     )
+
+
+class NutritionTargets(BaseModel):
+    """每日营养目标；为空表示使用自动计算的参考值。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    daily_kcal_target: int | None = Field(default=None, ge=1000, le=10000)
+    protein_g: float | None = Field(default=None, ge=10, le=400)
+    carbs_g: float | None = Field(default=None, ge=20, le=1000)
+    fat_g: float | None = Field(default=None, ge=10, le=400)
+    fiber_g: float | None = Field(default=None, ge=5, le=100)
+    sugar_max_g: float | None = Field(default=None, ge=0, le=300)
+    sodium_max_mg: float | None = Field(default=None, ge=200, le=10000)
+
+
+# API 字段 → profiles 列
+_TARGET_COLUMNS = {
+    "daily_kcal_target": "daily_kcal_target",
+    "protein_g": "protein_target_g",
+    "carbs_g": "carbs_target_g",
+    "fat_g": "fat_target_g",
+    "fiber_g": "fiber_target_g",
+    "sugar_max_g": "sugar_max_g",
+    "sodium_max_mg": "sodium_max_mg",
+}
+
+
+@router.get("/nutrition-targets")
+def get_nutrition_targets(user: CurrentUser, db: DbSession) -> NutritionTargets:
+    profile = db.scalar(select(Profile).where(Profile.user_id == user.id))
+    if profile is None:
+        return NutritionTargets()
+    return NutritionTargets(**{field: getattr(profile, column) for field, column in _TARGET_COLUMNS.items()})
+
+
+@router.put("/nutrition-targets")
+def put_nutrition_targets(
+    body: NutritionTargets, request: Request, user: CurrentUser, db: DbSession
+) -> NutritionTargets:
+    profile = db.scalar(select(Profile).where(Profile.user_id == user.id))
+    if profile is None:
+        profile = Profile(user_id=user.id)
+        db.add(profile)
+    for field, column in _TARGET_COLUMNS.items():
+        setattr(profile, column, getattr(body, field))
+    add_audit_event(
+        db,
+        user_id=user.id,
+        event_type="profile_changed",
+        outcome="success",
+        ip_address=request.client.host if request.client else None,
+    )
+    commit_with_tenant_context(db, user.id)
+    return get_nutrition_targets(user, db)
