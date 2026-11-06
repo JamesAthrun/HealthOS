@@ -3,6 +3,8 @@
 import { type FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError, type AuditEvent, type Me } from "@/lib/api";
+import { useSetMe } from "@/lib/me";
+import { useToast } from "@/lib/toast";
 import { useMe } from "@/lib/useMe";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -23,11 +25,13 @@ type Consent = { granted: boolean; granted_at: string | null };
 export default function SettingsPage() {
   const me = useMe();
 
-  if (!me) return <p>加载中…</p>;
+  if (!me) return <p className="muted">加载中…</p>;
   return <SettingsContent key={me.id} initialMe={me} />;
 }
 
 function SettingsContent({ initialMe }: { initialMe: Me }) {
+  const toast = useToast();
+  const setMe = useSetMe();
   const [displayName, setDisplayName] = useState(initialMe.display_name);
   const [timezone, setTimezone] = useState(initialMe.timezone);
   const [locale, setLocale] = useState(initialMe.locale);
@@ -35,7 +39,6 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
   const [consent, setConsent] = useState<Consent | null>(null);
   const [planningConsent, setPlanningConsent] = useState<Consent | null>(null);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -56,6 +59,7 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
     setError("");
     try {
       setConsent(await api<Consent>("/ai-consent", { method: "DELETE" }));
+      toast("已撤回");
       setEvents(await api<AuditEvent[]>("/me/audit-events"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "撤回失败，请稍后重试");
@@ -66,6 +70,7 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
     setError("");
     try {
       setPlanningConsent(await api<Consent>("/planning-consent", { method: "DELETE" }));
+      toast("已撤回");
       setEvents(await api<AuditEvent[]>("/me/audit-events"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "撤回失败，请稍后重试");
@@ -75,14 +80,13 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
-    setDone(false);
     setSubmitting(true);
     try {
-      await api<Me>("/me/settings", {
+      setMe(await api<Me>("/me/settings", {
         method: "PUT",
         body: { display_name: displayName, timezone, locale },
-      });
-      setDone(true);
+      }));
+      toast("设置已保存");
       setEvents(await api<AuditEvent[]>("/me/audit-events"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "网络异常，请稍后再试");
@@ -96,7 +100,6 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
       <form className="card" onSubmit={onSubmit}>
         <h1>账号设置</h1>
         {error && <p className="error" role="alert">{error}</p>}
-        {done && <p className="success" role="status">设置已保存</p>}
         <label>
           显示名称
           <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={50} required />
@@ -125,7 +128,7 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
       </form>
 
       <section className="card stack">
-        <h1>AI 图片处理</h1>
+        <h2>AI 图片处理</h2>
         {consent?.granted ? (
           <>
             <p>已同意在你主动点击识别时，将餐食照片发送给 DeepSeek。撤回后不会再发起新的 AI 识别。</p>
@@ -137,7 +140,7 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
       </section>
 
       <section className="card stack">
-        <h1>AI 健康规划</h1>
+        <h2>AI 健康规划</h2>
         {planningConsent?.granted ? (
           <>
             <p>已同意在你主动生成规划时，将近 30 天聚合健康摘要、“关于我”、最近建议，以及你填写的评价和反馈原因发送给 DeepSeek。用户名、照片和饮食、运动、睡眠的原始备注不会发送。</p>
@@ -149,7 +152,7 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
       </section>
 
       <section className="card">
-        <h1>最近安全活动</h1>
+        <h2>最近安全活动</h2>
         {events.length === 0 ? (
           <p>暂无记录</p>
         ) : (

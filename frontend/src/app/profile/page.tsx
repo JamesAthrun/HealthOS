@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError, type Me } from "@/lib/api";
 import { useMe } from "@/lib/useMe";
+import { useToast } from "@/lib/toast";
 
 type Profile = {
   birth_year: number | null;
@@ -38,16 +39,16 @@ const EMPTY: Record<keyof Profile, string> = {
 
 export default function ProfilePage() {
   const me = useMe();
-  if (!me) return <p>加载中…</p>;
+  if (!me) return <p className="muted">加载中…</p>;
   return <ProfileForm key={me.id} me={me} />;
 }
 
 function ProfileForm({ me }: { me: Me }) {
+  const toast = useToast();
   const [form, setForm] = useState({ ...EMPTY });
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [reference, setReference] = useState<KcalReference | null>(null);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -74,7 +75,6 @@ function ProfileForm({ me }: { me: Me }) {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
-    setDone(false);
     setSubmitting(true);
     const numberOrNull = (value: string) => (value ? Number(value) : null);
     try {
@@ -91,7 +91,7 @@ function ProfileForm({ me }: { me: Me }) {
           daily_kcal_target: numberOrNull(form.daily_kcal_target),
         },
       });
-      setDone(true);
+      toast("档案已保存");
       try {
         setReference(await api<KcalReference>("/profile/kcal-reference"));
       } catch {
@@ -109,7 +109,6 @@ function ProfileForm({ me }: { me: Me }) {
       <h1>{me.display_name}的健康档案</h1>
       <p>用于计算个人参考值；所有内容仅供本人查看。</p>
       {error && <p className="error" role="alert">{error}</p>}
-      {done && <p className="success" role="status">档案已保存</p>}
       <label>
         出生年份（仅限 18 岁以上）
         <input type="number" min="1900" max={new Date().getFullYear() - 18} value={form.birth_year} onChange={(e) => set("birth_year", e.target.value)} />

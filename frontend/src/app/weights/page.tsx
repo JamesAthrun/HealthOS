@@ -1,150 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { api, ApiError } from "@/lib/api";
-import { signedKg, todayLocalDate, type WeightLog, type WeightSummary } from "@/lib/health";
-import { useMe } from "@/lib/useMe";
-import { useConfirm } from "@/lib/confirm";
+import { RecordTypePage } from "@/components/RecordTypePage";
+import { api } from "@/lib/api";
+import { signedKg, type WeightLog, type WeightSummary } from "@/lib/health";
+import { weightEntry } from "@/lib/records";
 
-const EMPTY_FORM = { measured_on: "", weight_kg: "", waist_cm: "", body_fat_pct: "", notes: "" };
+const load = async () => (await api<WeightLog[]>("/weights")).map(weightEntry);
 
 export default function WeightsPage() {
-  const me = useMe();
-  const confirm = useConfirm();
-  const [rows, setRows] = useState<WeightLog[]>([]);
-  const [summary, setSummary] = useState<WeightSummary | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ ...EMPTY_FORM, measured_on: todayLocalDate() });
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  return (
+    <RecordTypePage
+      title="体重"
+      kind="weight"
+      load={load}
+      emptyText="还没有体重记录，点右上角“＋ 添加”记录今天的体重。"
+      top={(version) => <SummaryLoader version={version} />}
+    />
+  );
+}
 
-  async function load() {
-    const [logs, stats] = await Promise.all([
-      api<WeightLog[]>("/weights"),
-      api<WeightSummary>("/weights/summary"),
-    ]);
-    setRows(logs);
-    setSummary(stats);
-  }
+function SummaryLoader({ version }: { version: number }) {
+  const [summary, setSummary] = useState<WeightSummary | null>(null);
 
   useEffect(() => {
-    if (!me) return;
     let active = true;
-    Promise.all([api<WeightLog[]>("/weights"), api<WeightSummary>("/weights/summary")])
-      .then(([logs, stats]) => {
-        if (!active) return;
-        setRows(logs);
-        setSummary(stats);
-      })
-      .catch((err) => { if (active) setError(err instanceof ApiError ? err.message : "体重记录加载失败"); });
+    api<WeightSummary>("/weights/summary")
+      .then((data) => { if (active) setSummary(data); })
+      .catch(() => undefined);
     return () => { active = false; };
-  }, [me]);
+  }, [version]);
 
-  function set(field: keyof typeof EMPTY_FORM, value: string) {
-    setForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm({ ...EMPTY_FORM, measured_on: todayLocalDate() });
-  }
-
-  function edit(row: WeightLog) {
-    setEditingId(row.id);
-    setNotice("");
-    setForm({
-      measured_on: row.measured_on,
-      weight_kg: String(row.weight_kg),
-      waist_cm: row.waist_cm === null ? "" : String(row.waist_cm),
-      body_fat_pct: row.body_fat_pct === null ? "" : String(row.body_fat_pct),
-      notes: row.notes ?? "",
-    });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    setNotice("");
-    setSubmitting(true);
-    const numberOrNull = (value: string) => (value ? Number(value) : null);
-    const body = {
-      measured_on: form.measured_on,
-      weight_kg: Number(form.weight_kg),
-      waist_cm: numberOrNull(form.waist_cm),
-      body_fat_pct: numberOrNull(form.body_fat_pct),
-      notes: form.notes || null,
-    };
-    try {
-      const saved = editingId
-        ? await api<WeightLog>(`/weights/${editingId}`, { method: "PATCH", body })
-        : await api<WeightLog>("/weights", { method: "POST", body });
-      setNotice(saved.warning ? `已保存。${saved.warning}` : "已保存");
-      resetForm();
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "保存失败，请检查输入");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function remove(id: string) {
-    if (!(await confirm({ title: "删除这条体重记录？", message: "删除后无法恢复。", confirmText: "删除", danger: true }))) return;
-    try {
-      await api(`/weights/${id}`, { method: "DELETE" });
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "删除失败");
-    }
-  }
-
-  if (!me) return <p>加载中…</p>;
-
-  return (
-    <div className="stack">
-      {summary?.current && <SummaryCard summary={summary} />}
-
-      <form className="card stack" onSubmit={onSubmit}>
-        <h1>{editingId ? "编辑体重" : "记录体重"}</h1>
-        <p className="muted">同一天只保留一条，重复保存会覆盖当天的记录。建议每天固定时间称重（如早起后）。</p>
-        {error && <p className="error" role="alert">{error}</p>}
-        {notice && <p className={notice === "已保存" ? "success" : "error"} role="status">{notice}</p>}
-        <label>日期<input type="date" required max={todayLocalDate()} value={form.measured_on} onChange={(e) => set("measured_on", e.target.value)} /></label>
-        <label>体重（公斤）<input type="number" required min="20" max="500" step="0.1" inputMode="decimal" value={form.weight_kg} onChange={(e) => set("weight_kg", e.target.value)} /></label>
-        <label>腰围（厘米，可选）<input type="number" min="30" max="250" step="0.1" inputMode="decimal" value={form.waist_cm} onChange={(e) => set("waist_cm", e.target.value)} /></label>
-        <label>体脂率（%，可选）<input type="number" min="2" max="75" step="0.1" inputMode="decimal" value={form.body_fat_pct} onChange={(e) => set("body_fat_pct", e.target.value)} /></label>
-        <label>备注<textarea maxLength={500} value={form.notes} onChange={(e) => set("notes", e.target.value)} /></label>
-        <button type="submit" disabled={submitting}>{submitting ? "保存中…" : editingId ? "保存修改" : "保存体重"}</button>
-        {editingId && <button type="button" className="secondary" onClick={resetForm}>取消编辑</button>}
-      </form>
-
-      <section className="card">
-        <h1>历史记录</h1>
-        {rows.length === 0 ? <p className="muted">还没有体重记录</p> : rows.map((row) => (
-          <article className="record-card" key={row.id}>
-            <strong>{row.measured_on} · {row.weight_kg} kg</strong>
-            {(row.waist_cm !== null || row.body_fat_pct !== null) && (
-              <p>
-                {row.waist_cm !== null && `腰围 ${row.waist_cm} cm`}
-                {row.waist_cm !== null && row.body_fat_pct !== null && " · "}
-                {row.body_fat_pct !== null && `体脂 ${row.body_fat_pct}%`}
-              </p>
-            )}
-            {row.notes && <p className="muted">{row.notes}</p>}
-            <div className="actions">
-              <button type="button" className="secondary" onClick={() => edit(row)}>编辑</button>
-              <button type="button" className="danger" onClick={() => void remove(row.id)}>删除</button>
-            </div>
-          </article>
-        ))}
-      </section>
-      <Link href="/profile/">在健康档案中设置目标体重</Link>
-    </div>
-  );
+  if (!summary?.current) return null;
+  return <SummaryCard summary={summary} />;
 }
 
 function SummaryCard({ summary }: { summary: WeightSummary }) {
@@ -152,8 +42,8 @@ function SummaryCard({ summary }: { summary: WeightSummary }) {
   return (
     <section className="card stack">
       <div>
-        <p className="eyebrow">体重</p>
-        <h1>{current.weight_kg} <small>kg</small></h1>
+        <p className="eyebrow">当前体重</p>
+        <p className="big-number">{current.weight_kg} <small>kg</small></p>
         <p className="muted">最近一次：{current.date}</p>
       </div>
       <div className="metric-grid">
@@ -180,6 +70,7 @@ function SummaryCard({ summary }: { summary: WeightSummary }) {
       </div>
       {summary.trend.length >= 2 && <WeightChart points={summary.trend} target={summary.target_weight_kg} />}
       <small className="muted">{summary.notice}</small>
+      <Link href="/profile/">{summary.target_weight_kg ? "修改目标体重" : "设置目标体重"}</Link>
     </section>
   );
 }
