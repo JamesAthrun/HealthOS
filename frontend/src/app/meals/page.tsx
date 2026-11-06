@@ -3,9 +3,9 @@
 import { RecordTypePage } from "@/components/RecordTypePage";
 import { api } from "@/lib/api";
 import type { Meal } from "@/lib/health";
-import { mealEntry } from "@/lib/records";
+import { mealEntryDetailed } from "@/lib/records";
 
-const load = async () => (await api<Meal[]>("/meals")).map(mealEntry);
+const load = async () => (await api<Meal[]>("/meals")).map(mealEntryDetailed);
 
 export default function MealsPage() {
   return (

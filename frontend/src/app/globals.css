@@ -853,6 +853,32 @@ a.button.secondary {
   height: 6px;
 }
 
+.item-nutrients {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.item-nutrients > div {
+  padding: 6px 4px;
+  border-radius: 8px;
+  background: #f4f8f6;
+  text-align: center;
+}
+
+.item-nutrients dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.item-nutrients dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .fab {
   position: fixed;
   right: max(16px, calc((100vw - 480px) / 2 + 16px));
