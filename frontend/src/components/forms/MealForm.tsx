@@ -35,20 +35,34 @@ export function MealTypeChips({ value, onChange }: { value: Meal["meal_type"]; o
   );
 }
 
-export function MealForm({ initial, day, onDone }: FormProps<Meal>) {
+/** AI 识别出的草稿：拍照时带 photoId，确认时走照片确认接口 */
+export type MealDraft = {
+  items: DraftItem[];
+  mealType: Meal["meal_type"];
+  photoId?: string;
+  confidence?: number;
+  warnings?: string[];
+};
+
+export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { draft?: MealDraft }) {
   const confirm = useConfirm();
   const prefs = useFoodPreferences(true);
   const { busy, error, run } = useAction();
   const [eatenAt, setEatenAt] = useState(() => initial ? toDateTimeLocal(initial.eaten_at) : defaultDateTime(day, "12:00"));
-  const [mealType, setMealType] = useState<Meal["meal_type"]>(() => initial?.meal_type ?? guessMealType(new Date(eatenAt)));
+  const [mealType, setMealType] = useState<Meal["meal_type"]>(
+    () => initial?.meal_type ?? draft?.mealType ?? guessMealType(new Date(eatenAt)),
+  );
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [items, setItems] = useState<DraftItem[]>(() => initial
-    ? initial.food_items.map((food) => {
-      const copy: DraftItem & { id?: string } = { ...food };
-      delete copy.id;
-      return copy;
-    })
-    : [emptyFoodItem()]);
+  const [items, setItems] = useState<DraftItem[]>(() => {
+    if (initial) {
+      return initial.food_items.map((food) => {
+        const copy: DraftItem & { id?: string } = { ...food };
+        delete copy.id;
+        return copy;
+      });
+    }
+    return draft?.items.length ? draft.items : [emptyFoodItem()];
+  });
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -58,9 +72,11 @@ export function MealForm({ initial, day, onDone }: FormProps<Meal>) {
       notes: notes || null,
       food_items: items.map(toFoodItem),
     };
-    const ok = await run(() => initial
-      ? api(`/meals/${initial.id}`, { method: "PATCH", body })
-      : api("/meals", { method: "POST", body }), "保存失败，请稍后重试");
+    const ok = await run(() => {
+      if (initial) return api(`/meals/${initial.id}`, { method: "PATCH", body });
+      if (draft?.photoId) return api(`/meal-photos/${draft.photoId}/confirm`, { method: "POST", body });
+      return api("/meals", { method: "POST", body });
+    }, "保存失败，请稍后重试");
     if (ok) onDone(initial ? "已保存修改" : "饮食已记录");
   }
 
@@ -73,15 +89,20 @@ export function MealForm({ initial, day, onDone }: FormProps<Meal>) {
     <form className="stack" onSubmit={onSubmit}>
       {error && <p className="error" role="alert">{error}</p>}
       {prefs.error && <p className="error" role="alert">{prefs.error}</p>}
+      {draft && <NutritionCard items={items} note="AI 粗略估算，仅供参考，可以直接修改下面的内容；改份量会按比例换算。" />}
+      {draft?.confidence !== undefined && <p className="muted">识别把握：{Math.round(draft.confidence * 100)}%</p>}
+      {draft?.warnings && draft.warnings.length > 0 && (
+        <ul className="warning-list">{draft.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+      )}
       <MealTypeChips value={mealType} onChange={setMealType} />
       <label>时间<input type="datetime-local" value={eatenAt} onChange={(e) => setEatenAt(e.target.value)} required /></label>
       <FoodItemsEditor items={items} onChange={setItems} prefs={prefs} />
-      <NutritionCard items={items} note="按你填写的数值合计；修改份量会按比例换算。" />
+      {!draft && <NutritionCard items={items} note="按你填写的数值合计；修改份量会按比例换算。" />}
       <details className="more" open={Boolean(notes)}>
         <summary>备注（可选）</summary>
         <label>备注<textarea value={notes} maxLength={2000} onChange={(e) => setNotes(e.target.value)} /></label>
       </details>
-      <button type="submit" disabled={busy}>{busy ? "保存中…" : "保存"}</button>
+      <button type="submit" disabled={busy}>{busy ? "保存中…" : draft ? "确认并记录" : "保存"}</button>
       {initial && <button type="button" className="ghost-danger" disabled={busy} onClick={() => void remove()}>删除这条记录</button>}
     </form>
   );

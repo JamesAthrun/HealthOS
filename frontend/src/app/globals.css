@@ -666,15 +666,8 @@ a.button.secondary {
   font-weight: 500;
 }
 
-.add-grid > a:first-child {
-  grid-column: 1 / -1;
-  flex-direction: row;
-  justify-content: center;
-  gap: 8px;
-  border-color: var(--primary);
-  background: #edf7f1;
-  color: var(--primary);
-  font-weight: 600;
+.add-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .page-head h1 {

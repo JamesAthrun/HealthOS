@@ -58,10 +58,7 @@ export default function HomePage() {
       {!data && !error && <section className="card"><p className="muted">正在整理今天的记录…</p></section>}
       {data && <TodayCards data={data} />}
 
-      <div className="two-col">
-        <button type="button" onClick={() => sheet.setTarget({ kind: null })}>＋ 记一笔</button>
-        <Link className="button secondary" href="/meal-photo/">📷 拍照记饮食</Link>
-      </div>
+      <button type="button" onClick={() => sheet.setTarget({ kind: null })}>＋ 记一笔</button>
 
       {data && (
         <section className="card">

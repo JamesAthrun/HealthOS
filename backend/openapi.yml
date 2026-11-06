@@ -796,6 +796,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-text/analyze:
+    post:
+      tags:
+      - meal photos
+      summary: Analyze Meal Text
+      description: 文字/语音描述 → 饮食草稿。不保存任何内容；用户确认后走 POST /api/meals。
+      operationId: analyze_meal_text_api_meal_text_analyze_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealTextIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecognition'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
   /api/meal-photos/{photo_id}/analysis:
     get:
       tags:
@@ -2413,6 +2441,18 @@ components:
       - food_items
       - overall_confidence
       title: MealRecognition
+    MealTextIn:
+      properties:
+        text:
+          type: string
+          maxLength: 300
+          minLength: 1
+          title: Text
+      additionalProperties: false
+      type: object
+      required:
+      - text
+      title: MealTextIn
     NoteIn:
       properties:
         content:
