@@ -19,8 +19,11 @@ from app.dashboard import _user_timezone
 from app.deps import CurrentUser, DbSession
 from app.meal_ai import (
     AIProviderError,
+    EstimatedNutrition,
+    EstimateItemIn,
     MealRecognition,
     PROMPT_VERSION,
+    estimate_nutrition,
     recognize_meal,
     recognize_meal_text,
 )
@@ -53,6 +56,16 @@ class MealTextIn(BaseModel):
 
     # 文字或语音输入法转出来的一句话，例如“中午吃了一碗牛肉面加个卤蛋”
     text: str = Field(min_length=1, max_length=300)
+
+
+class EstimateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[EstimateItemIn] = Field(min_length=1, max_length=20)
+
+
+class EstimateOut(BaseModel):
+    items: list[EstimatedNutrition]
 
 
 class MealPhotoOut(BaseModel):
@@ -335,6 +348,20 @@ def analyze_meal_text(body: MealTextIn, user: CurrentUser) -> MealRecognition:
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, "AI 识别暂时失败，可稍后重试或手工记录"
         ) from exc
+
+
+@router.post("/meal-text/estimate")
+def estimate_meal_nutrition(body: EstimateIn, user: CurrentUser) -> EstimateOut:
+    """按用户填写的食物清单估算热量和营养素；不保存，结果与输入一一对应。"""
+    if user.ai_consent_at is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "请先在“我的 → 账号设置”或拍照/文字记录中同意 AI 饮食识别")
+    settings = get_settings()
+    if not settings.deepseek_api_key:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 尚未配置，可以手动填写热量")
+    try:
+        return EstimateOut(items=estimate_nutrition(body.items, settings))
+    except AIProviderError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "营养估算暂时失败，可稍后重试") from exc
 
 
 @router.get("/meal-photos/{photo_id}/analysis")
