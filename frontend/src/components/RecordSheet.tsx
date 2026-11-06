@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
-
 import { Sheet } from "@/components/Sheet";
 import { ExerciseForm } from "@/components/forms/ExerciseForm";
+import { MealCapture } from "@/components/forms/MealCapture";
 import { MealForm } from "@/components/forms/MealForm";
 import { SleepForm } from "@/components/forms/SleepForm";
 import { WeightForm } from "@/components/forms/WeightForm";
@@ -38,16 +37,17 @@ export function RecordSheet({
     <Sheet title={title} onClose={onClose}>
       {target.kind === null && (
         <div className="add-grid">
-          <Link href="/meal-photo/"><span>📷</span>拍照记饮食</Link>
           {(Object.keys(KIND_META) as RecordKind[]).map((kind) => (
             <button key={kind} type="button" onClick={() => onChoose(kind)}>
               <span>{KIND_META[kind].icon}</span>
-              {kind === "meal" ? "手动记饮食" : `记${KIND_META[kind].label}`}
+              {KIND_META[kind].label}
             </button>
           ))}
         </div>
       )}
-      {target.kind === "meal" && <MealForm initial={target.initial} day={day} onDone={onDone} />}
+      {target.kind === "meal" && (target.initial
+        ? <MealForm initial={target.initial} day={day} onDone={onDone} />
+        : <MealCapture day={day} onDone={onDone} />)}
       {target.kind === "exercise" && <ExerciseForm initial={target.initial} day={day} onDone={onDone} />}
       {target.kind === "sleep" && <SleepForm initial={target.initial} day={day} onDone={onDone} />}
       {target.kind === "weight" && <WeightForm initial={target.initial} day={day} onDone={onDone} />}

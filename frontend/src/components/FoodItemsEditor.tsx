@@ -1,78 +1,135 @@
 "use client";
 
+import { useId } from "react";
+
+import { fillFromHistory, type FoodHistory } from "@/lib/foodHistory";
 import { FoodPrefButtons, type Sentiment } from "@/lib/foodPrefs";
 import type { FoodItemInput } from "@/lib/health";
-import { type DraftItem, emptyFoodItem, formatNutrient, NUTRIENTS, OPTIONAL_NUTRIENTS, scaleItem } from "@/lib/nutrition";
+import {
+  type DraftItem,
+  emptyFoodItem,
+  estimateItems,
+  formatNutrient,
+  needsEstimate,
+  NUTRIENTS,
+  OPTIONAL_NUTRIENTS,
+  scaleItem,
+} from "@/lib/nutrition";
+import { useAction } from "@/lib/useAction";
 
 type Prefs = {
   find: (name: string) => { sentiment: Sentiment } | undefined;
   toggle: (name: string, sentiment: Sentiment) => void;
 };
 
-/** 拍照识别和手动记饮食共用的食物编辑：默认只显示名称、份量、热量，营养素折叠 */
+/**
+ * 拍照、文字、直接填写和编辑共用的食物编辑。
+ * 只需要填“吃了什么、吃了多少”：热量和营养素可以用吃过的记录一键填好，或点“估算营养”交给 AI。
+ */
 export function FoodItemsEditor({
   items,
   onChange,
   prefs,
+  history,
 }: {
   items: DraftItem[];
   onChange: (items: DraftItem[]) => void;
   prefs?: Prefs;
+  history?: FoodHistory;
 }) {
+  const listId = useId();
+  const { busy, error, run } = useAction();
+  const pending = items.filter(needsEstimate).length;
+
   function update(index: number, field: keyof FoodItemInput, value: string) {
     onChange(items.map((item, i) => {
       if (i !== index) return item;
-      if (field === "name" || field === "unit") return { ...item, [field]: value };
+      if (field === "name") {
+        const past = history?.lookup(value);
+        // 选中了吃过的食物：直接用上次的数值，不用再估算
+        if (past && past.name === value) return fillFromHistory(item, past);
+        return { ...item, name: value, stale: true };
+      }
+      if (field === "unit") return { ...item, unit: value, stale: true };
       if (field === "quantity") return scaleItem(item, Number(value));
+      // 手动改了热量，视为用户自己给出了数值
+      if (field === "kcal") return { ...item, kcal: Number(value), stale: false };
       if (OPTIONAL_NUTRIENTS.has(field) && value === "") return { ...item, [field]: null };
       return { ...item, [field]: Number(value) };
     }));
   }
 
+  async function estimate() {
+    await run(async () => onChange(await estimateItems(items)), "营养估算失败，请稍后重试");
+  }
+
   return (
     <div className="stack">
+      {history && history.names.length > 0 && (
+        <datalist id={listId}>
+          {history.names.map((name) => <option key={name} value={name} />)}
+        </datalist>
+      )}
       {items.map((item, index) => (
         <div className="food-row stack" key={index}>
           <label>
             食物
-            <input required maxLength={100} value={item.name} placeholder="例如：米饭" onChange={(e) => update(index, "name", e.target.value)} />
+            <input
+              required
+              maxLength={100}
+              value={item.name}
+              list={history?.names.length ? listId : undefined}
+              placeholder="例如：米饭、番茄炒蛋"
+              onChange={(e) => update(index, "name", e.target.value)}
+            />
           </label>
           {prefs && <FoodPrefButtons name={item.name} current={prefs.find(item.name)?.sentiment} onToggle={prefs.toggle} />}
           <div className="two-col">
             <label>份量<input type="number" inputMode="decimal" min="0.01" step="0.01" required value={item.quantity} onChange={(e) => update(index, "quantity", e.target.value)} /></label>
-            <label>单位<input required maxLength={20} value={item.unit} onChange={(e) => update(index, "unit", e.target.value)} /></label>
+            <label>单位<input required maxLength={20} value={item.unit} placeholder="碗、个、g" onChange={(e) => update(index, "unit", e.target.value)} /></label>
           </div>
-          <label>
-            热量（kcal）
-            <input type="number" inputMode="decimal" min="0" step="0.1" required placeholder="0" value={item.kcal || ""} onChange={(e) => update(index, "kcal", e.target.value || "0")} />
-          </label>
-          <details className="more">
-            <summary>
-              营养素：蛋白 {formatNutrient(item.protein_g, "g")} · 碳水 {formatNutrient(item.carbs_g, "g")} · 脂肪 {formatNutrient(item.fat_g, "g")}
-            </summary>
-            <div className="two-col">
-              {NUTRIENTS.map(({ key, label, unit }) => (
-                <label key={key}>
-                  {label}（{unit}）
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step={unit === "mg" ? "1" : "0.1"}
-                    value={item[key] ?? ""}
-                    placeholder={OPTIONAL_NUTRIENTS.has(key) ? "未知" : "0"}
-                    onChange={(e) => update(index, key, OPTIONAL_NUTRIENTS.has(key) ? e.target.value : e.target.value || "0")}
-                  />
+          {needsEstimate(item) ? (
+            <p className="muted">{item.kcal > 0 ? "名称或单位改了，点下方“估算营养”更新数值" : "热量和营养素：点下方“估算营养”自动填写"}</p>
+          ) : (
+            <details className="more">
+              <summary>
+                {Math.round(item.kcal)} kcal · 蛋白 {formatNutrient(item.protein_g, "g")} · 碳水 {formatNutrient(item.carbs_g, "g")} · 脂肪 {formatNutrient(item.fat_g, "g")}（点开修改）
+              </summary>
+              <div className="two-col">
+                <label>
+                  热量（kcal）
+                  <input type="number" inputMode="decimal" min="0" step="0.1" placeholder="0" value={item.kcal || ""} onChange={(e) => update(index, "kcal", e.target.value || "0")} />
                 </label>
-              ))}
-            </div>
-          </details>
+                {NUTRIENTS.map(({ key, label, unit }) => (
+                  <label key={key}>
+                    {label}（{unit}）
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step={unit === "mg" ? "1" : "0.1"}
+                      value={item[key] ?? ""}
+                      placeholder={OPTIONAL_NUTRIENTS.has(key) ? "未知" : "0"}
+                      onChange={(e) => update(index, key, OPTIONAL_NUTRIENTS.has(key) ? e.target.value : e.target.value || "0")}
+                    />
+                  </label>
+                ))}
+              </div>
+            </details>
+          )}
           {items.length > 1 && (
             <button type="button" className="text-danger" onClick={() => onChange(items.filter((_, i) => i !== index))}>移除这项</button>
           )}
         </div>
       ))}
+      {error && <p className="error" role="alert">{error}</p>}
+      {pending > 0 && (
+        <button type="button" disabled={busy} onClick={() => void estimate()}>
+          {busy ? "估算中…" : `✨ 估算营养${pending > 1 ? `（${pending} 项）` : ""}`}
+        </button>
+      )}
       <button type="button" className="secondary" onClick={() => onChange([...items, emptyFoodItem()])}>＋ 再加一种食物</button>
+      {history && history.names.length > 0 && <p className="muted">输入名称时会提示你吃过的食物，选中即可直接填好数值。</p>}
     </div>
   );
 }

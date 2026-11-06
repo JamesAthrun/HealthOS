@@ -796,6 +796,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-text/analyze:
+    post:
+      tags:
+      - meal photos
+      summary: Analyze Meal Text
+      description: 文字/语音描述 → 饮食草稿。不保存任何内容；用户确认后走 POST /api/meals。
+      operationId: analyze_meal_text_api_meal_text_analyze_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealTextIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecognition'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/meal-text/estimate:
+    post:
+      tags:
+      - meal photos
+      summary: Estimate Meal Nutrition
+      description: 按用户填写的食物清单估算热量和营养素；不保存，结果与输入一一对应。
+      operationId: estimate_meal_nutrition_api_meal_text_estimate_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstimateIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstimateOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
   /api/meal-photos/{photo_id}/analysis:
     get:
       tags:
@@ -1693,6 +1749,105 @@ components:
       - sleep_minutes
       - sleep_quality
       title: DailySummary
+    EstimateIn:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/EstimateItemIn'
+          type: array
+          maxItems: 20
+          minItems: 1
+          title: Items
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      title: EstimateIn
+    EstimateItemIn:
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Name
+        quantity:
+          type: number
+          maximum: 100000.0
+          exclusiveMinimum: 0.0
+          title: Quantity
+        unit:
+          type: string
+          maxLength: 20
+          minLength: 1
+          title: Unit
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - quantity
+      - unit
+      title: EstimateItemIn
+    EstimateOut:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/EstimatedNutrition'
+          type: array
+          title: Items
+      type: object
+      required:
+      - items
+      title: EstimateOut
+    EstimatedNutrition:
+      properties:
+        kcal:
+          type: number
+          maximum: 10000.0
+          minimum: 0.0
+          title: Kcal
+        protein_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Protein G
+          default: 0
+        carbs_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Carbs G
+          default: 0
+        fat_g:
+          type: number
+          maximum: 1000.0
+          minimum: 0.0
+          title: Fat G
+          default: 0
+        fiber_g:
+          anyOf:
+          - type: number
+            maximum: 200.0
+            minimum: 0.0
+          - type: 'null'
+          title: Fiber G
+        sugar_g:
+          anyOf:
+          - type: number
+            maximum: 1000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Sugar G
+        sodium_mg:
+          anyOf:
+          - type: number
+            maximum: 50000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Sodium Mg
+      type: object
+      required:
+      - kcal
+      title: EstimatedNutrition
     ExerciseIn:
       properties:
         type:
@@ -2413,6 +2568,18 @@ components:
       - food_items
       - overall_confidence
       title: MealRecognition
+    MealTextIn:
+      properties:
+        text:
+          type: string
+          maxLength: 300
+          minLength: 1
+          title: Text
+      additionalProperties: false
+      type: object
+      required:
+      - text
+      title: MealTextIn
     NoteIn:
       properties:
         content:

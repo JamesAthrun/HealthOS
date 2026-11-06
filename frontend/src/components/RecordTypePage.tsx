@@ -3,9 +3,10 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { GroupedEntries, entryTarget, newTarget, useRecordSheet } from "@/components/EntryList";
+import { Fab } from "@/components/Fab";
 import { RecordSheet } from "@/components/RecordSheet";
 import { ApiError } from "@/lib/api";
-import type { Entry, RecordKind } from "@/lib/records";
+import { type Entry, KIND_META, type RecordKind } from "@/lib/records";
 import { useMe } from "@/lib/useMe";
 
 /** 饮食/运动/睡眠/体重历史页的统一结构：标题 + 添加按钮 + 按天分组的列表，点一条即可编辑 */
@@ -53,10 +54,7 @@ export function RecordTypePage({
     <div className="stack">
       <div className="page-head">
         <h1>{title}</h1>
-        <div style={{ display: "flex", gap: 8 }}>
-          {headExtra}
-          <button type="button" onClick={() => sheet.setTarget(newTarget(kind))}>＋ 添加</button>
-        </div>
+        {headExtra}
       </div>
       {top?.(version)}
       <section className="card">
@@ -65,6 +63,7 @@ export function RecordTypePage({
         {entries && entries.length === 0 && <p className="muted">{emptyText}</p>}
         {entries && <GroupedEntries entries={entries} onSelect={(entry) => sheet.setTarget(entryTarget(entry))} />}
       </section>
+      <Fab label={`记${KIND_META[kind].label}`} onClick={() => sheet.setTarget(newTarget(kind))} />
       {sheet.target && (
         <RecordSheet
           target={sheet.target}

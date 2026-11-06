@@ -96,6 +96,131 @@ def authenticated(username: str):
     return client
 
 
+def test_text_recognition_sends_text_only_and_returns_draft(monkeypatch):
+    import httpx
+
+    import app.meal_ai as meal_ai
+
+    sent = []
+    good = {
+        "meal_type": "lunch",
+        "food_items": [{"name": "牛肉面", "quantity": 1, "unit": "碗", "kcal": 550, "sodium_mg": 1800, "confidence": 0.7}],
+        "overall_confidence": 0.7,
+    }
+
+    class FakeClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def post(self, url, headers, json):
+            sent.append(json)
+            import json as _json
+            return httpx.Response(200, request=httpx.Request("POST", url), json={"choices": [{"message": {"content": _json.dumps(good)}}]})
+
+    monkeypatch.setattr(meal_ai.httpx, "Client", FakeClient)
+    settings = get_settings().model_copy(update={"deepseek_api_key": "test-key"})
+    result = meal_ai.recognize_meal_text("中午吃了一碗牛肉面", settings, "2026-11-06 12:30")
+    assert result.food_items[0].name == "牛肉面"
+    user_message = sent[0]["messages"][1]["content"]
+    assert isinstance(user_message, str) and "牛肉面" in user_message and "12:30" in user_message
+
+
+def test_text_analyze_endpoint_requires_consent_and_does_not_save(monkeypatch):
+    client = authenticated("alice")
+    assert client.post("/api/meal-text/analyze", json={"text": "一碗牛肉面"}).status_code == 403
+    client.put("/api/ai-consent")
+    assert client.post("/api/meal-text/analyze", json={"text": "   "}).status_code == 422
+    assert client.post("/api/meal-text/analyze", json={"text": "x" * 301}).status_code == 422
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
+    calls = []
+
+    def fake(text, _settings, now_local):
+        calls.append((text, now_local))
+        return MealRecognition.model_validate({
+            "meal_type": "lunch",
+            "food_items": [{"name": "牛肉面", "quantity": 1, "unit": "碗", "kcal": 550, "confidence": 0.7}],
+            "overall_confidence": 0.7,
+        })
+
+    monkeypatch.setattr(photos_module, "recognize_meal_text", fake)
+    response = client.post("/api/meal-text/analyze", json={"text": " 一碗牛肉面 "})
+    assert response.status_code == 200
+    assert response.json()["food_items"][0]["name"] == "牛肉面"
+    assert calls[0][0] == "一碗牛肉面"
+    # 只是草稿，不会写入饮食记录
+    assert client.get("/api/meals").json() == []
+
+
+def _fake_deepseek(monkeypatch, content: dict):
+    import json as _json
+
+    import httpx
+
+    import app.meal_ai as meal_ai
+
+    sent = []
+
+    class FakeClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def post(self, url, headers, json):
+            sent.append(json)
+            return httpx.Response(200, request=httpx.Request("POST", url), json={"choices": [{"message": {"content": _json.dumps(content)}}]})
+
+    monkeypatch.setattr(meal_ai.httpx, "Client", FakeClient)
+    return sent
+
+
+def test_estimate_keeps_order_and_rejects_count_mismatch(monkeypatch):
+    import app.meal_ai as meal_ai
+
+    settings = get_settings().model_copy(update={"deepseek_api_key": "test-key"})
+    items = [meal_ai.EstimateItemIn(name="米饭", quantity=1, unit="碗"), meal_ai.EstimateItemIn(name="鸡蛋", quantity=2, unit="个")]
+    sent = _fake_deepseek(monkeypatch, {"items": [
+        {"name": "米饭", "kcal": 230, "protein_g": 4, "carbs_g": 50, "fat_g": 0.5},
+        {"kcal": 140, "protein_g": 12, "carbs_g": 1, "fat_g": 10, "sodium_mg": 140},
+    ]})
+    result = meal_ai.estimate_nutrition(items, settings)
+    assert [r.kcal for r in result] == [230, 140]
+    assert "鸡蛋" in sent[0]["messages"][1]["content"]
+
+    _fake_deepseek(monkeypatch, {"items": [{"kcal": 230}]})
+    try:
+        meal_ai.estimate_nutrition(items, settings)
+        raise AssertionError("expected AIProviderError")
+    except meal_ai.AIProviderError as exc:
+        assert exc.code == "AI_INVALID_RESPONSE"
+
+
+def test_estimate_endpoint_requires_consent(monkeypatch):
+    client = authenticated("alice")
+    body = {"items": [{"name": "米饭", "quantity": 1, "unit": "碗"}]}
+    assert client.post("/api/meal-text/estimate", json=body).status_code == 403
+    client.put("/api/ai-consent")
+    assert client.post("/api/meal-text/estimate", json={"items": []}).status_code == 422
+    monkeypatch.setattr(get_settings(), "deepseek_api_key", "test-key")
+    _fake_deepseek(monkeypatch, {"items": [{"kcal": 230, "protein_g": 4, "carbs_g": 50, "fat_g": 0.5}]})
+    response = client.post("/api/meal-text/estimate", json=body)
+    assert response.status_code == 200
+    assert response.json()["items"][0]["kcal"] == 230
+    assert response.json()["items"][0]["sodium_mg"] is None
+
+
 def image_bytes(color: str = "tomato") -> bytes:
     output = io.BytesIO()
     Image.new("RGB", (2400, 1800), color=color).save(

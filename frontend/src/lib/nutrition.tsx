@@ -1,3 +1,4 @@
+import { api } from "@/lib/api";
 import type { FoodItemInput } from "@/lib/health";
 
 type NutrientKey = "protein_g" | "carbs_g" | "fat_g" | "fiber_g" | "sugar_g" | "sodium_mg";
@@ -47,11 +48,44 @@ export function nutritionLine(items: FoodItemInput[]): string {
   return parts.join(" · ");
 }
 
-/** 份量改变时按比例换算热量和营养素；份量暂时无效（清空正在输入）时保留原值等下次换算 */
-export type DraftItem = FoodItemInput & { baseQuantity?: number };
+/**
+ * 份量改变时按比例换算热量和营养素；份量暂时无效（清空正在输入）时保留原值等下次换算。
+ * stale：名称或单位变了、还没有对应的营养数值，需要重新估算。
+ */
+export type DraftItem = FoodItemInput & { baseQuantity?: number; stale?: boolean };
 
 export function emptyFoodItem(): DraftItem {
-  return { name: "", quantity: 1, unit: "份", kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: null, sugar_g: null, sodium_mg: null };
+  return { name: "", quantity: 1, unit: "份", kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: null, sugar_g: null, sodium_mg: null, stale: true };
+}
+
+export function needsEstimate(item: DraftItem): boolean {
+  return Boolean(item.stale && item.name.trim() && item.quantity > 0 && item.unit.trim());
+}
+
+/** 只估算需要更新的项，其他项（包括用户手动改过的）保持不变 */
+export async function estimateItems(items: DraftItem[]): Promise<DraftItem[]> {
+  const targets = items.map((item, index) => ({ item, index })).filter(({ item }) => needsEstimate(item));
+  if (targets.length === 0) return items;
+  const { items: results } = await api<{ items: Pick<FoodItemInput, "kcal" | NutrientKey>[] }>("/meal-text/estimate", {
+    method: "POST",
+    body: { items: targets.map(({ item }) => ({ name: item.name.trim(), quantity: item.quantity, unit: item.unit.trim() })) },
+  });
+  const next = [...items];
+  targets.forEach(({ item, index }, i) => {
+    const r = results[i];
+    next[index] = {
+      ...item,
+      kcal: r.kcal,
+      protein_g: r.protein_g ?? 0,
+      carbs_g: r.carbs_g ?? 0,
+      fat_g: r.fat_g ?? 0,
+      fiber_g: r.fiber_g ?? null,
+      sugar_g: r.sugar_g ?? null,
+      sodium_mg: r.sodium_mg ?? null,
+      stale: false,
+    };
+  });
+  return next;
 }
 
 export function scaleItem(item: DraftItem, quantity: number): DraftItem {
@@ -70,6 +104,7 @@ export function scaleItem(item: DraftItem, quantity: number): DraftItem {
 export function toFoodItem(item: DraftItem): FoodItemInput {
   const copy = { ...item };
   delete copy.baseQuantity;
+  delete copy.stale;
   return copy;
 }
 

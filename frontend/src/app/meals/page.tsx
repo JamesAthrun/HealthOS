@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import { RecordTypePage } from "@/components/RecordTypePage";
 import { api } from "@/lib/api";
 import type { Meal } from "@/lib/health";
@@ -15,8 +13,7 @@ export default function MealsPage() {
       title="饮食"
       kind="meal"
       load={load}
-      emptyText="还没有饮食记录。可以拍照识别，也可以手动添加。"
-      headExtra={<Link className="button secondary" href="/meal-photo/">📷 拍照</Link>}
+      emptyText="还没有饮食记录。点右下角“＋ 记饮食”，可以拍照、打字或说一句话。"
     />
   );
 }

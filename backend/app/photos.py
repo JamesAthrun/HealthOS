@@ -10,13 +10,23 @@ from fastapi import APIRouter, Body, HTTPException, Request, status
 from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from app.audit import add_audit_event, commit_with_tenant_context, set_tenant_context
 from app.config import get_settings
+from app.dashboard import _user_timezone
 from app.deps import CurrentUser, DbSession
-from app.meal_ai import AIProviderError, MealRecognition, PROMPT_VERSION, recognize_meal
+from app.meal_ai import (
+    AIProviderError,
+    EstimatedNutrition,
+    EstimateItemIn,
+    MealRecognition,
+    PROMPT_VERSION,
+    estimate_nutrition,
+    recognize_meal,
+    recognize_meal_text,
+)
 from app.models import Meal, MealAnalysis, MealPhoto
 from app.records import MealIn, MealOut, _meal_out, _replace_food_items
 
@@ -39,6 +49,23 @@ class ConsentOut(BaseModel):
 class AnalyzeIn(BaseModel):
     # 识别不准时用户补充的说明，例如“这是牛肉面，只吃了一半”
     hint: str | None = Field(default=None, max_length=200)
+
+
+class MealTextIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # 文字或语音输入法转出来的一句话，例如“中午吃了一碗牛肉面加个卤蛋”
+    text: str = Field(min_length=1, max_length=300)
+
+
+class EstimateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[EstimateItemIn] = Field(min_length=1, max_length=20)
+
+
+class EstimateOut(BaseModel):
+    items: list[EstimatedNutrition]
 
 
 class MealPhotoOut(BaseModel):
@@ -301,6 +328,40 @@ def analyze_meal_photo(
     commit_with_tenant_context(db, user.id)
     db.refresh(analysis)
     return _analysis_out(analysis)
+
+
+@router.post("/meal-text/analyze")
+def analyze_meal_text(body: MealTextIn, user: CurrentUser) -> MealRecognition:
+    """文字/语音描述 → 饮食草稿。不保存任何内容；用户确认后走 POST /api/meals。"""
+    if user.ai_consent_at is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "请先同意将饮食照片或文字发送给 AI 服务商处理")
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "请描述吃了什么")
+    settings = get_settings()
+    if not settings.deepseek_api_key:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 尚未配置，可继续手工记录")
+    now_local = datetime.now(_user_timezone(user)).strftime("%Y-%m-%d %H:%M")
+    try:
+        return recognize_meal_text(text, settings, now_local)
+    except AIProviderError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "AI 识别暂时失败，可稍后重试或手工记录"
+        ) from exc
+
+
+@router.post("/meal-text/estimate")
+def estimate_meal_nutrition(body: EstimateIn, user: CurrentUser) -> EstimateOut:
+    """按用户填写的食物清单估算热量和营养素；不保存，结果与输入一一对应。"""
+    if user.ai_consent_at is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "请先在“我的 → 账号设置”或拍照/文字记录中同意 AI 饮食识别")
+    settings = get_settings()
+    if not settings.deepseek_api_key:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 尚未配置，可以手动填写热量")
+    try:
+        return EstimateOut(items=estimate_nutrition(body.items, settings))
+    except AIProviderError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "营养估算暂时失败，可稍后重试") from exc
 
 
 @router.get("/meal-photos/{photo_id}/analysis")

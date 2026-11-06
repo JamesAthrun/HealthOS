@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { EntryList, entryTarget, newTarget, useRecordSheet } from "@/components/EntryList";
+import { Fab } from "@/components/Fab";
 import { RecordSheet } from "@/components/RecordSheet";
+import { TodayNutrition, useDailyTargets } from "@/components/TodayNutrition";
 import { ApiError } from "@/lib/api";
+import { dayIntake } from "@/lib/dailyNutrition";
 import {
   type AllRecords,
   dayKey,
@@ -25,6 +28,7 @@ export default function LogPage() {
   const [day, setDay] = useState(today);
   const [all, setAll] = useState<AllRecords | null>(null);
   const [error, setError] = useState("");
+  const targets = useDailyTargets();
 
   const reload = useCallback(async () => {
     try {
@@ -51,10 +55,7 @@ export default function LogPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <h1>记录</h1>
-        <button type="button" onClick={() => sheet.setTarget({ kind: null })}>＋ 记一笔</button>
-      </div>
+      <h1>记录</h1>
 
       <section className="card stack">
         <div className="day-nav">
@@ -75,10 +76,18 @@ export default function LogPage() {
         {error && <p className="error" role="alert">{error}</p>}
         {!all && !error && <p className="muted">加载中…</p>}
         {all && entries.length === 0 && (
-          <p className="muted" style={{ textAlign: "center" }}>这一天还没有记录，点右上角“＋ 记一笔”添加。</p>
+          <p className="muted" style={{ textAlign: "center" }}>这一天还没有记录，点右下角“＋ 记一笔”添加。</p>
         )}
         <EntryList entries={entries} onSelect={(entry) => sheet.setTarget(entryTarget(entry))} />
       </section>
+
+      {all && entries.some((e) => e.kind === "meal") && (
+        <TodayNutrition
+          intake={dayIntake(all.meals.filter((meal) => dayKey(meal.eaten_at) === day))}
+          targets={targets}
+          showTips={day === today}
+        />
+      )}
 
       <section className="card">
         <h2>按类型查看</h2>
@@ -89,6 +98,8 @@ export default function LogPage() {
           <li><Link href="/weights/">⚖️ 体重与趋势</Link></li>
         </ul>
       </section>
+
+      <Fab onClick={() => sheet.setTarget({ kind: null })} />
 
       {sheet.target && (
         <RecordSheet

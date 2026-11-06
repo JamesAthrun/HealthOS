@@ -13,8 +13,8 @@ const EVENT_LABELS: Record<string, string> = {
   password_changed: "修改密码",
   settings_changed: "修改账号设置",
   session_expired: "会话过期",
-  ai_consent_granted: "同意 AI 图片处理",
-  ai_consent_revoked: "撤回 AI 图片处理同意",
+  ai_consent_granted: "同意 AI 饮食识别",
+  ai_consent_revoked: "撤回 AI 饮食识别同意",
   meal_ai_confirmed: "确认 AI 饮食草稿",
   planning_consent_granted: "同意 AI 健康规划",
   planning_consent_revoked: "撤回 AI 健康规划同意",
@@ -128,14 +128,14 @@ function SettingsContent({ initialMe }: { initialMe: Me }) {
       </form>
 
       <section className="card stack">
-        <h2>AI 图片处理</h2>
+        <h2>AI 饮食识别</h2>
         {consent?.granted ? (
           <>
-            <p>已同意在你主动点击识别时，将餐食照片发送给 DeepSeek。撤回后不会再发起新的 AI 识别。</p>
-            <button type="button" className="secondary" onClick={revokeConsent}>撤回 AI 图片处理同意</button>
+            <p>已同意在你主动点击识别时，将餐食照片或饮食文字描述发送给 DeepSeek。撤回后不会再发起新的 AI 识别。</p>
+            <button type="button" className="secondary" onClick={revokeConsent}>撤回 AI 饮食识别同意</button>
           </>
         ) : (
-          <p>当前未同意 AI 图片处理。手工饮食记录不受影响。</p>
+          <p>当前未同意 AI 饮食识别。直接填写饮食记录不受影响。</p>
         )}
       </section>
 
