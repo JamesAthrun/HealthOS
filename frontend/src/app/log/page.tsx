@@ -5,7 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { EntryList, entryTarget, newTarget, useRecordSheet } from "@/components/EntryList";
 import { RecordSheet } from "@/components/RecordSheet";
+import { TodayNutrition, useDailyTargets } from "@/components/TodayNutrition";
 import { ApiError } from "@/lib/api";
+import { dayIntake } from "@/lib/dailyNutrition";
 import {
   type AllRecords,
   dayKey,
@@ -25,6 +27,7 @@ export default function LogPage() {
   const [day, setDay] = useState(today);
   const [all, setAll] = useState<AllRecords | null>(null);
   const [error, setError] = useState("");
+  const targets = useDailyTargets();
 
   const reload = useCallback(async () => {
     try {
@@ -79,6 +82,14 @@ export default function LogPage() {
         )}
         <EntryList entries={entries} onSelect={(entry) => sheet.setTarget(entryTarget(entry))} />
       </section>
+
+      {all && entries.some((e) => e.kind === "meal") && (
+        <TodayNutrition
+          intake={dayIntake(all.meals.filter((meal) => dayKey(meal.eaten_at) === day))}
+          targets={targets}
+          showTips={day === today}
+        />
+      )}
 
       <section className="card">
         <h2>按类型查看</h2>

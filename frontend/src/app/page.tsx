@@ -5,7 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { EntryList, entryTarget, newTarget, useRecordSheet } from "@/components/EntryList";
 import { RecordSheet } from "@/components/RecordSheet";
+import { TodayNutrition, useDailyTargets } from "@/components/TodayNutrition";
 import { api, ApiError } from "@/lib/api";
+import { dayIntake } from "@/lib/dailyNutrition";
 import { signedKg, type TodayDashboard, type TrendDashboard, type WeightSummary } from "@/lib/health";
 import { type AllRecords, dayKey, entriesForDay, fetchAllRecords, QUALITY_LABELS } from "@/lib/records";
 import { useMe } from "@/lib/useMe";
@@ -26,10 +28,13 @@ export default function HomePage() {
   const me = useMe();
   const [data, setData] = useState<HomeData | null>(null);
   const [error, setError] = useState("");
+  const [version, setVersion] = useState(0);
+  const targets = useDailyTargets(version);
 
   const reload = useCallback(async () => {
     try {
       setData(await fetchHome());
+      setVersion((v) => v + 1);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "加载失败，请稍后重试");
     }
@@ -56,6 +61,12 @@ export default function HomePage() {
 
       {error && <p className="error" role="alert">{error}</p>}
       {!data && !error && <section className="card"><p className="muted">正在整理今天的记录…</p></section>}
+      {data && (
+        <TodayNutrition
+          intake={dayIntake(data.records.meals.filter((meal) => dayKey(meal.eaten_at) === dayKey(new Date())))}
+          targets={targets}
+        />
+      )}
       {data && <TodayCards data={data} />}
 
       <button type="button" onClick={() => sheet.setTarget({ kind: null })}>＋ 记一笔</button>
@@ -90,27 +101,11 @@ export default function HomePage() {
 }
 
 function TodayCards({ data }: { data: HomeData }) {
-  const { summary, target_kcal: target } = data.today;
-  const percent = target ? Math.round((summary.kcal / target) * 100) : null;
+  const { summary } = data.today;
   const weight = data.weight?.current;
 
   return (
     <>
-      <section className="card stack">
-        <div className="nutrition-head">
-          <span>今日摄入</span>
-          <strong>{Math.round(summary.kcal)} <small>{target ? `/ ${target} kcal` : "kcal"}</small></strong>
-        </div>
-        {percent !== null && (
-          <div className={percent > 100 ? "progress over" : "progress"} aria-label={`已达目标的 ${percent}%`}>
-            <span style={{ width: `${Math.min(percent, 100)}%` }} />
-          </div>
-        )}
-        <p className="muted">
-          {summary.meal_count} 餐 · 蛋白 {summary.protein_g} · 碳水 {summary.carbs_g} · 脂肪 {summary.fat_g} g
-          {!target && <> · <Link href="/profile/">设置热量目标</Link></>}
-        </p>
-      </section>
       <div className="metric-grid">
         <Link className="metric" href="/exercises/">
           <span>运动</span>

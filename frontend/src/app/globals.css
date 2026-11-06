@@ -849,6 +849,69 @@ a.button.secondary {
   background: #dd6b20;
 }
 
+.progress.thin {
+  height: 6px;
+}
+
+.nutri-top {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.kcal-ring {
+  width: 112px;
+  height: 112px;
+}
+
+.nutri-macros,
+.nutri-minor {
+  display: grid;
+  gap: 8px;
+}
+
+.nutri-minor {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.nutri-bar-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 3px;
+  font-size: 13px;
+}
+
+.nutri-bar-head small {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.nutri-minor .nutri-bar-head {
+  flex-direction: column;
+  gap: 0;
+}
+
+.tip-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tip-list li {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f4f8f6;
+  font-size: 14px;
+}
+
 .menu-list {
   margin: 0;
   padding: 0;
