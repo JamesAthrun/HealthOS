@@ -4,24 +4,45 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
-import { dailyTargets, type DailyTargets, type DayIntake, intakeTips } from "@/lib/dailyNutrition";
+import {
+  dailyTargets,
+  type DailyTargets,
+  type DayIntake,
+  intakeTips,
+  NO_OVERRIDES,
+  type TargetOverrides,
+} from "@/lib/dailyNutrition";
 
-/** 读取档案里的热量目标、维持参考和体重，算出每日参考值；version 变化时重新读取 */
+export type TargetInputs = {
+  overrides: TargetOverrides;
+  maintenanceKcal: number | null;
+  weightLossKcal: number | null;
+  weightKg: number | null;
+};
+
+/** 读取营养目标、热量参考和最新体重 */
+export async function fetchTargetInputs(): Promise<TargetInputs> {
+  const [overrides, profile, reference] = await Promise.all([
+    api<TargetOverrides>("/nutrition-targets").catch(() => NO_OVERRIDES),
+    api<{ weight_kg: number | null }>("/profile").catch(() => null),
+    api<{ maintenance_kcal: number; weight_loss_kcal: number | null }>("/profile/kcal-reference").catch(() => null),
+  ]);
+  return {
+    overrides,
+    maintenanceKcal: reference?.maintenance_kcal ?? null,
+    weightLossKcal: reference?.weight_loss_kcal ?? null,
+    weightKg: profile?.weight_kg ?? null,
+  };
+}
+
+/** 每日参考值（自己设定的优先，其余自动计算）；version 变化时重新读取 */
 export function useDailyTargets(version = 0): DailyTargets {
-  const [targets, setTargets] = useState<DailyTargets>(() => dailyTargets({ targetKcal: null, maintenanceKcal: null, weightKg: null }));
+  const [targets, setTargets] = useState<DailyTargets>(() => dailyTargets({ maintenanceKcal: null, weightKg: null }));
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      api<{ daily_kcal_target: number | null; weight_kg: number | null }>("/profile").catch(() => null),
-      api<{ maintenance_kcal: number }>("/profile/kcal-reference").catch(() => null),
-    ]).then(([profile, reference]) => {
-      if (!active) return;
-      setTargets(dailyTargets({
-        targetKcal: profile?.daily_kcal_target ?? null,
-        maintenanceKcal: reference?.maintenance_kcal ?? null,
-        weightKg: profile?.weight_kg ?? null,
-      }));
+    fetchTargetInputs().then((inputs) => {
+      if (active) setTargets(dailyTargets(inputs));
     });
     return () => { active = false; };
   }, [version]);
@@ -103,8 +124,8 @@ export function TodayNutrition({ intake, targets, showTips = true }: { intake: D
         </ul>
       )}
       <p className="muted">
-        参考值按{targets.kcalSource}热量估算，仅供参考。
-        {targets.kcalSource !== "目标" && <> <Link href="/profile/">设置热量目标</Link></>}
+        {targets.kcalSource === "目标" ? "按你设定的营养目标计算" : `热量按${targets.kcalSource}估算`}，仅供参考。
+        {" "}<Link href="/targets/">调整目标 ›</Link>
       </p>
     </section>
   );

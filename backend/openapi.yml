@@ -208,6 +208,47 @@ paths:
                 $ref: '#/components/schemas/KcalReferenceOut'
       security:
       - SessionCookie: []
+  /api/nutrition-targets:
+    get:
+      tags:
+      - profile
+      summary: Get Nutrition Targets
+      operationId: get_nutrition_targets_api_nutrition_targets_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NutritionTargets'
+      security:
+      - SessionCookie: []
+    put:
+      tags:
+      - profile
+      summary: Put Nutrition Targets
+      operationId: put_nutrition_targets_api_nutrition_targets_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NutritionTargets'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NutritionTargets'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
   /api/meals:
     get:
       tags:
@@ -2675,6 +2716,61 @@ components:
       additionalProperties: false
       type: object
       title: NotePatch
+    NutritionTargets:
+      properties:
+        daily_kcal_target:
+          anyOf:
+          - type: integer
+            maximum: 10000.0
+            minimum: 1000.0
+          - type: 'null'
+          title: Daily Kcal Target
+        protein_g:
+          anyOf:
+          - type: number
+            maximum: 400.0
+            minimum: 10.0
+          - type: 'null'
+          title: Protein G
+        carbs_g:
+          anyOf:
+          - type: number
+            maximum: 1000.0
+            minimum: 20.0
+          - type: 'null'
+          title: Carbs G
+        fat_g:
+          anyOf:
+          - type: number
+            maximum: 400.0
+            minimum: 10.0
+          - type: 'null'
+          title: Fat G
+        fiber_g:
+          anyOf:
+          - type: number
+            maximum: 100.0
+            minimum: 5.0
+          - type: 'null'
+          title: Fiber G
+        sugar_max_g:
+          anyOf:
+          - type: number
+            maximum: 300.0
+            minimum: 0.0
+          - type: 'null'
+          title: Sugar Max G
+        sodium_max_mg:
+          anyOf:
+          - type: number
+            maximum: 10000.0
+            minimum: 200.0
+          - type: 'null'
+          title: Sodium Max Mg
+      additionalProperties: false
+      type: object
+      title: NutritionTargets
+      description: 每日营养目标；为空表示使用自动计算的参考值。
     ProfileIn:
       properties:
         birth_year:

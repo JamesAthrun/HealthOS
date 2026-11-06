@@ -15,7 +15,6 @@ type Profile = {
   activity_level: "sedentary" | "light" | "moderate" | "active" | null;
   dietary_preferences: string | null;
   allergies: string | null;
-  daily_kcal_target: number | null;
 };
 
 type KcalReference = {
@@ -34,7 +33,6 @@ const EMPTY: Record<keyof Profile, string> = {
   activity_level: "",
   dietary_preferences: "",
   allergies: "",
-  daily_kcal_target: "",
 };
 
 export default function ProfilePage() {
@@ -88,7 +86,6 @@ function ProfileForm({ me }: { me: Me }) {
           activity_level: form.activity_level || null,
           dietary_preferences: form.dietary_preferences || null,
           allergies: form.allergies || null,
-          daily_kcal_target: numberOrNull(form.daily_kcal_target),
         },
       });
       toast("档案已保存");
@@ -152,10 +149,11 @@ function ProfileForm({ me }: { me: Me }) {
         过敏信息
         <textarea value={form.allergies} maxLength={1000} onChange={(e) => set("allergies", e.target.value)} />
       </label>
-      <label>
-        每日热量目标（可在看到参考值后填写）
-        <input type="number" min="1000" max="10000" value={form.daily_kcal_target} onChange={(e) => set("daily_kcal_target", e.target.value)} />
-      </label>
+      <div className="reference">
+        <strong>每日热量和营养目标</strong>
+        <p>已移到单独的页面，可以参考下方的维持/减重热量来设定。</p>
+        <Link href="/targets/">设定营养目标 ›</Link>
+      </div>
       {reference && (
         <div className="reference">
           <strong>每日维持参考：约 {reference.maintenance_kcal} kcal</strong>

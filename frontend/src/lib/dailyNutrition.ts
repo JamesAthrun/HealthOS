@@ -13,19 +13,35 @@ export type DailyTargets = {
   sodium_max_mg: number;
 };
 
-export function dailyTargets(opts: { targetKcal: number | null; maintenanceKcal: number | null; weightKg: number | null }): DailyTargets {
-  const kcal = opts.targetKcal ?? opts.maintenanceKcal ?? 2000;
+/** 用户在“营养目标”页自己设定的值；为空表示用自动计算的参考值 */
+export type TargetOverrides = {
+  daily_kcal_target: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fiber_g: number | null;
+  sugar_max_g: number | null;
+  sodium_max_mg: number | null;
+};
+
+export const NO_OVERRIDES: TargetOverrides = {
+  daily_kcal_target: null, protein_g: null, carbs_g: null, fat_g: null, fiber_g: null, sugar_max_g: null, sodium_max_mg: null,
+};
+
+export function dailyTargets(opts: { overrides?: TargetOverrides; maintenanceKcal: number | null; weightKg: number | null }): DailyTargets {
+  const o = opts.overrides ?? NO_OVERRIDES;
+  const kcal = o.daily_kcal_target ?? opts.maintenanceKcal ?? 2000;
   return {
     kcal,
-    kcalSource: opts.targetKcal ? "目标" : opts.maintenanceKcal ? "维持参考" : "通用参考",
+    kcalSource: o.daily_kcal_target ? "目标" : opts.maintenanceKcal ? "维持参考" : "通用参考",
     // 成年人约每公斤体重 1 g；没有体重时按热量的 15%
-    protein_g: Math.round(opts.weightKg ? opts.weightKg * 1.0 : (kcal * 0.15) / 4),
-    carbs_g: Math.round((kcal * 0.55) / 4),
-    fat_g: Math.round((kcal * 0.25) / 9),
+    protein_g: o.protein_g ?? Math.round(opts.weightKg ? opts.weightKg * 1.0 : (kcal * 0.15) / 4),
+    carbs_g: o.carbs_g ?? Math.round((kcal * 0.55) / 4),
+    fat_g: o.fat_g ?? Math.round((kcal * 0.25) / 9),
     // 参考《中国居民膳食指南》：膳食纤维 25–30 g，盐 < 5 g（钠约 2000 mg），添加糖 < 50 g
-    fiber_g: 25,
-    sugar_max_g: 50,
-    sodium_max_mg: 2000,
+    fiber_g: o.fiber_g ?? 25,
+    sugar_max_g: o.sugar_max_g ?? 50,
+    sodium_max_mg: o.sodium_max_mg ?? 2000,
   };
 }
 
@@ -48,7 +64,7 @@ export function intakeTips(intake: DayIntake, targets: DailyTargets, now: Date =
   if (kcalLeft < -100) tips.push({ icon: "⚠️", text: `热量已超出${targets.kcalSource} ${-kcalLeft} kcal，后面清淡些，多走走。` });
 
   const sodium = intake.sodium_mg ?? 0;
-  if (sodium > targets.sodium_max_mg) tips.push({ icon: "🧂", text: `钠约 ${Math.round(sodium)} mg，已超过每日建议上限（约 5 g 盐），下一顿少盐少酱。` });
+  if (sodium > targets.sodium_max_mg) tips.push({ icon: "🧂", text: `钠约 ${Math.round(sodium)} mg，已超过每日上限 ${targets.sodium_max_mg} mg（约 ${(targets.sodium_max_mg / 400).toFixed(1)} g 盐），下一顿少盐少酱。` });
   else if (sodium > targets.sodium_max_mg * 0.75 && hour < 18) tips.push({ icon: "🧂", text: `钠已接近每日上限，晚餐尽量清淡。` });
 
   const proteinLeft = Math.round(targets.protein_g - (intake.protein_g ?? 0));
