@@ -1,6 +1,7 @@
 import { api } from "./api";
 import type { Exercise, Meal, Sleep, WeightLog } from "./health";
 import { toDateTimeLocal } from "./health";
+import { formatNutrient, mealTotals } from "./nutrition";
 
 export const MEAL_LABELS: Record<Meal["meal_type"], string> = {
   breakfast: "早餐",
@@ -99,6 +100,21 @@ export function mealEntry(row: Meal): Entry {
     detail: timeOf(row.eaten_at),
     side: `${mealKcal(row)} kcal`,
   };
+}
+
+/** 饮食历史页用：第二行写明这一餐的全部营养 */
+export function mealEntryDetailed(row: Meal): Entry {
+  const t = mealTotals(row.food_items);
+  const parts = [
+    timeOf(row.eaten_at),
+    `蛋白 ${formatNutrient(t.protein_g, "g")}`,
+    `碳水 ${formatNutrient(t.carbs_g, "g")}`,
+    `脂肪 ${formatNutrient(t.fat_g, "g")}`,
+    `纤维 ${formatNutrient(t.fiber_g, "g")}`,
+    `糖 ${formatNutrient(t.sugar_g, "g")}`,
+    `钠 ${formatNutrient(t.sodium_mg, "mg")}`,
+  ];
+  return { ...mealEntry(row), detail: parts.join(" · ") };
 }
 
 export function exerciseEntry(row: Exercise): Entry {

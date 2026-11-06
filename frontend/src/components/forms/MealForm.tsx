@@ -104,6 +104,7 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
       {error && <p className="error" role="alert">{error}</p>}
       {prefs.error && <p className="error" role="alert">{prefs.error}</p>}
       {draft && <NutritionCard items={items} note="AI 粗略估算，仅供参考，可以直接修改下面的内容；改份量会按比例换算。" />}
+      {initial && <NutritionCard items={items} note="这一餐的合计；每种食物的明细见下方。" />}
       {draft?.confidence !== undefined && <p className="muted">识别把握：{Math.round(draft.confidence * 100)}%</p>}
       {draft?.warnings && draft.warnings.length > 0 && (
         <ul className="warning-list">{draft.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
@@ -111,7 +112,7 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
       <MealTypeChips value={mealType} onChange={setMealType} />
       <label>时间<input type="datetime-local" value={eatenAt} onChange={(e) => setEatenAt(e.target.value)} required /></label>
       <FoodItemsEditor items={items} onChange={setItems} prefs={prefs} history={history} />
-      {!draft && <NutritionCard items={items} note="按食物合计；未估算的项保存时会自动估算。" />}
+      {!draft && !initial && <NutritionCard items={items} note="按食物合计；未估算的项保存时会自动估算。" />}
       <details className="more" open={Boolean(notes)}>
         <summary>备注（可选）</summary>
         <label>备注<textarea value={notes} maxLength={2000} onChange={(e) => setNotes(e.target.value)} /></label>

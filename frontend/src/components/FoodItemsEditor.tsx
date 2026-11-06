@@ -91,11 +91,16 @@ export function FoodItemsEditor({
           {needsEstimate(item) ? (
             <p className="muted">{item.kcal > 0 ? "名称或单位改了，点下方“估算营养”更新数值" : "热量和营养素：点下方“估算营养”自动填写"}</p>
           ) : (
-            <details className="more">
-              <summary>
-                {Math.round(item.kcal)} kcal · 蛋白 {formatNutrient(item.protein_g, "g")} · 碳水 {formatNutrient(item.carbs_g, "g")} · 脂肪 {formatNutrient(item.fat_g, "g")}（点开修改）
-              </summary>
-              <div className="two-col">
+            <>
+              <dl className="item-nutrients" aria-label={`${item.name || "这项食物"}的营养`}>
+                <div><dt>热量</dt><dd>{Math.round(item.kcal)} kcal</dd></div>
+                {NUTRIENTS.map(({ key, label, unit }) => (
+                  <div key={key}><dt>{label}</dt><dd>{formatNutrient(item[key], unit)}</dd></div>
+                ))}
+              </dl>
+              <details className="more">
+                <summary>修改数值</summary>
+                <div className="two-col">
                 <label>
                   热量（kcal）
                   <input type="number" inputMode="decimal" min="0" step="0.1" placeholder="0" value={item.kcal || ""} onChange={(e) => update(index, "kcal", e.target.value || "0")} />
@@ -114,8 +119,9 @@ export function FoodItemsEditor({
                     />
                   </label>
                 ))}
-              </div>
-            </details>
+                </div>
+              </details>
+            </>
           )}
           {items.length > 1 && (
             <button type="button" className="text-danger" onClick={() => onChange(items.filter((_, i) => i !== index))}>移除这项</button>
