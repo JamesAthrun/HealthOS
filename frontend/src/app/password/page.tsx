@@ -3,21 +3,21 @@
 import { type FormEvent, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
+import { useToast } from "@/lib/toast";
 import { useMe } from "@/lib/useMe";
 
 export default function PasswordPage() {
   const me = useMe();
+  const toast = useToast();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
-    setDone(false);
     if (next.length < 8) return setError("新密码至少 8 位");
     if (next !== confirm) return setError("两次输入的新密码不一致");
     setSubmitting(true);
@@ -26,7 +26,7 @@ export default function PasswordPage() {
         method: "POST",
         body: { current_password: current, new_password: next },
       });
-      setDone(true);
+      toast("密码已修改，其他设备需要重新登录");
       setCurrent("");
       setNext("");
       setConfirm("");
@@ -37,13 +37,12 @@ export default function PasswordPage() {
     }
   }
 
-  if (!me) return <p>加载中…</p>;
+  if (!me) return <p className="muted">加载中…</p>;
 
   return (
     <form className="card" onSubmit={onSubmit}>
       <h1>修改密码</h1>
-      {error && <p className="error">{error}</p>}
-      {done && <p className="success">密码已修改，其他设备需要重新登录</p>}
+      {error && <p className="error" role="alert">{error}</p>}
       <label>
         当前密码
         <input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} required />

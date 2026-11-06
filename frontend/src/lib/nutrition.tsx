@@ -50,6 +50,10 @@ export function nutritionLine(items: FoodItemInput[]): string {
 /** 份量改变时按比例换算热量和营养素；份量暂时无效（清空正在输入）时保留原值等下次换算 */
 export type DraftItem = FoodItemInput & { baseQuantity?: number };
 
+export function emptyFoodItem(): DraftItem {
+  return { name: "", quantity: 1, unit: "份", kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: null, sugar_g: null, sodium_mg: null };
+}
+
 export function scaleItem(item: DraftItem, quantity: number): DraftItem {
   const from = item.quantity > 0 ? item.quantity : item.baseQuantity ?? 0;
   if (!(quantity > 0) || !(from > 0)) return { ...item, quantity, baseQuantity: from || undefined };
@@ -75,7 +79,10 @@ function round1(value: number): number {
 
 const MACRO_COLORS = { protein_g: "#2f855a", carbs_g: "#d69e2e", fat_g: "#dd6b20" } as const;
 
-export function NutritionCard({ items }: { items: FoodItemInput[] }) {
+export function NutritionCard({
+  items,
+  note = "AI 根据照片粗略估算，仅供参考；钠和糖受调料、酱汁影响大。修改份量会按比例换算热量和营养素。",
+}: { items: FoodItemInput[]; note?: string }) {
   const t = mealTotals(items);
   const energy = {
     protein_g: (t.protein_g ?? 0) * 4,
@@ -110,7 +117,7 @@ export function NutritionCard({ items }: { items: FoodItemInput[] }) {
           </div>
         ))}
       </div>
-      <p className="muted">AI 根据照片粗略估算，仅供参考；钠和糖受调料、酱汁影响大。修改份量会按比例换算热量和营养素。</p>
+      <p className="muted">{note}</p>
     </div>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
 import { useMe } from "@/lib/useMe";
 import { useConfirm } from "@/lib/confirm";
 import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
+import { useToast } from "@/lib/toast";
 
 type Category = "limitation" | "preference" | "tried" | "temporary";
 type Note = {
@@ -27,6 +27,7 @@ const LABELS: Record<Category, string> = {
 export default function NotesPage() {
   const me = useMe();
   const confirm = useConfirm();
+  const toast = useToast();
   const [notes, setNotes] = useState<Note[]>([]);
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<Category>("preference");
@@ -41,7 +42,7 @@ export default function NotesPage() {
     api<{ food_name: string; count: number }[]>("/food-preferences/frequent").then(setFrequent).catch(() => setFrequent([]));
   }, [me]);
 
-  if (!me) return <p>加载中…</p>;
+  if (!me) return <p className="muted">加载中…</p>;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -54,6 +55,7 @@ export default function NotesPage() {
       });
       setNotes((current) => [created, ...current]);
       setContent("");
+      toast("已添加");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "保存失败");
     } finally {
@@ -67,6 +69,7 @@ export default function NotesPage() {
     try {
       await api(`/notes/${id}`, { method: "DELETE" });
       setNotes((current) => current.filter((note) => note.id !== id));
+      toast("已删除");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "删除失败");
     }
@@ -132,7 +135,6 @@ export default function NotesPage() {
           </>
         )}
       </section>
-      <Link href="/advice/">返回健康规划</Link>
     </div>
   );
 }

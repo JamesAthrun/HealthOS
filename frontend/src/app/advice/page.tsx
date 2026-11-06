@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useMe } from "@/lib/useMe";
 import { FoodPrefButtons, useFoodPreferences } from "@/lib/foodPrefs";
+import { useToast } from "@/lib/toast";
 
 type Consent = { granted: boolean; granted_at: string | null };
 type AdviceAction = {
@@ -38,6 +39,7 @@ const MEAL_LABELS = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", sn
 
 export default function AdvicePage() {
   const me = useMe();
+  const toast = useToast();
   const [consent, setConsent] = useState<Consent | null>(null);
   const [items, setItems] = useState<Advice[]>([]);
   const [busy, setBusy] = useState<"daily" | "weekly" | "">("");
@@ -76,7 +78,7 @@ export default function AdvicePage() {
     return () => window.clearInterval(timer);
   }, [items]);
 
-  if (!me) return <p>加载中…</p>;
+  if (!me) return <p className="muted">加载中…</p>;
 
   async function grantConsent() {
     setError("");
@@ -130,6 +132,7 @@ export default function AdvicePage() {
         },
       });
       setItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
+      toast("感谢反馈");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "反馈保存失败");
     } finally {
@@ -141,9 +144,8 @@ export default function AdvicePage() {
     <div className="stack">
       <section className="card stack">
         <div>
-          <p className="eyebrow">Sprint 4</p>
           <h1>健康规划</h1>
-          <p>根据你的聚合记录生成小步、可执行的明日建议或周计划。</p>
+          <p className="muted">根据你的记录生成小步、可执行的明日建议或周计划。</p>
         </div>
         {error && <p className="error" role="alert">{error}</p>}
         {consent && !consent.granted && (
@@ -156,11 +158,11 @@ export default function AdvicePage() {
           <button type="button" disabled={!consent?.granted || busy !== ""} onClick={() => generate("daily")}>
             {busy === "daily" ? "生成中…" : "生成明日建议"}
           </button>
-          <button type="button" disabled={!consent?.granted || busy !== ""} onClick={() => generate("weekly")}>
+          <button type="button" className="secondary" disabled={!consent?.granted || busy !== ""} onClick={() => generate("weekly")}>
             {busy === "weekly" ? "生成中…" : "生成下周计划"}
           </button>
         </div>
-        <Link href="/notes/">管理“关于我”</Link>
+        <Link href="/notes/">管理“关于我”与食物偏好 ›</Link>
       </section>
 
       {items.length === 0 && <section className="card"><p className="muted">还没有规划。先完善健康记录和“关于我”，再生成第一份建议。</p></section>}
