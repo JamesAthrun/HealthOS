@@ -8,11 +8,14 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     LargeBinary,
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
+    true,
 )
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import Mapped, mapped_column
@@ -102,6 +105,29 @@ class Profile(Base):
     fiber_target_g: Mapped[float | None] = mapped_column(Float)
     sugar_max_g: Mapped[float | None] = mapped_column(Float)
     sodium_max_mg: Mapped[float | None] = mapped_column(Float)
+    cycle_tracking_enabled: Mapped[bool] = mapped_column(default=False, server_default=false())
+    cycle_share_with_ai: Mapped[bool] = mapped_column(default=False, server_default=false())
+    # 经前热量 +150、经期补铁提示；可以关闭
+    cycle_adjust_targets: Mapped[bool] = mapped_column(default=True, server_default=true())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CyclePeriod(Base):
+    """一次经期；日期是用户时区的本地日期，end_date 为空表示经期中。"""
+
+    __tablename__ = "cycle_periods"
+    __table_args__ = (Index("ix_cycle_periods_user_start", "user_id", "start_date"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    flow: Mapped[str | None] = mapped_column(String(8))
+    symptoms: Mapped[list[str]] = mapped_column(JSON, default=list)
+    notes: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, server_default=func.now(), onupdate=func.now()
     )

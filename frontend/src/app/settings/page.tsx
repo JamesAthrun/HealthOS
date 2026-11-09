@@ -18,6 +18,12 @@ const EVENT_LABELS: Record<string, string> = {
   meal_ai_confirmed: "确认 AI 饮食草稿",
   planning_consent_granted: "同意 AI 健康规划",
   planning_consent_revoked: "撤回 AI 健康规划同意",
+  cycle_tracking_enabled: "开启周期记录",
+  cycle_tracking_disabled: "关闭周期记录",
+  cycle_ai_share_enabled: "允许建议参考周期",
+  cycle_ai_share_disabled: "不再让建议参考周期",
+  cycle_adjust_enabled: "开启按周期调整饮食参考",
+  cycle_adjust_disabled: "关闭按周期调整饮食参考",
 };
 
 type Consent = { granted: boolean; granted_at: string | null };

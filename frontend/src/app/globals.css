@@ -966,6 +966,30 @@ a.button.secondary {
   font-weight: 400;
 }
 
+.cycle-card,
+.stack > a.cycle-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.cycle-card > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cycle-card small {
+  font-size: 12px;
+}
+
 .week-chart {
   position: relative;
   display: grid;

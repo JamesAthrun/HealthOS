@@ -66,7 +66,7 @@ FastAPI --> PostgreSQL
 | --- | --- |
 | `users` | `id`, `username`, `password_hash`, `display_name`, `is_admin`, `timezone`, `created_at` |
 | `sessions` | `id_hash`, `user_id`, `expires_at` |
-| `profiles` | `user_id`, `birth_year`, `sex`（`male`/`female`，可空）, `height_cm`, `weight_kg`（等于最新一条体重记录）, `target_weight_kg`（可空）, `activity_level`, `dietary_preferences`, `allergies`, `daily_kcal_target`, `cycle_tracking_enabled`, `cycle_share_with_ai`, `updated_at` |
+| `profiles` | `user_id`, `birth_year`, `sex`（`male`/`female`，可空）, `height_cm`, `weight_kg`（等于最新一条体重记录）, `target_weight_kg`（可空）, `activity_level`, `dietary_preferences`, `allergies`, `daily_kcal_target`, `cycle_tracking_enabled`, `cycle_share_with_ai`, `cycle_adjust_targets`, `updated_at` |
 | `meals` | `id`, `user_id`, `eaten_at`, `meal_type`, `photo_path`, `status`（`draft`/`recognizing`/`needs_review`/`confirmed`/`failed`）, `ai_draft`（JSON）, `notes` |
 | `food_items` | `id`, `meal_id`, `user_id`, `name`, `quantity`, `unit`, `kcal`, `protein_g`, `carbs_g`, `fat_g` |
 | `exercises` | `id`, `user_id`, `type`, `started_at`, `minutes`, `intensity`, `steps`, `notes` |
@@ -113,7 +113,8 @@ FastAPI --> PostgreSQL
 | GET | `/api/food-preferences/frequent` | 最近 30 天常吃的食物（代码统计） |
 | GET/POST, PATCH/DELETE | `/api/cycles`, `/api/cycles/{id}` | 经期记录（未开启周期记录时返回 404） |
 | POST | `/api/cycles/start-today`, `/api/cycles/end-today` | 一键记录“今天来了 / 今天结束了” |
-| GET | `/api/cycles/summary` | 周期第几天、当前阶段、下次预测、提醒 |
+| GET | `/api/cycles/summary` | 周期第几天、当前阶段、下次预测、提醒、热量调整与饮食提示 |
+| GET/PUT | `/api/cycle-settings` | 周期开关（记录 / 按周期调整 / AI 共享）；仅档案性别为女时可开启 |
 | GET | `/api/export` | 下载本人全部数据（JSON） |
 
 改变数据的请求需要校验 `Origin` 头，防止跨站请求（CSRF）。
@@ -298,7 +299,7 @@ http://<公网IP> {
 | 5. 上线 | 服务器部署、HTTPS（自签证书）、每日备份与一次恢复演练、数据导出 | 家人手机能通过 `https://<IP>` 正常使用；备份能成功恢复 |
 | 6. 体重记录 | 迁移 0007（`weight_logs`、`target_weight_kg`、把现有 `weight_kg` 转为第一条记录）、`/api/weights`、看板体重卡片和 30 天曲线、体重规律 | 能按天记体重，看到变化和趋势；热量参考值跟随最新体重 |
 | 7. 食物偏好与明日餐单 | 迁移 0008（`food_preferences`）、饮食记录上的“喜欢/不想再吃”、常吃统计、`meal_plan`、过敏过滤 | 明日建议带餐单，优先使用喜欢/常吃的食物；含过敏原的推荐被丢弃（有测试） |
-| 8. 生理周期（记录与预测） | 迁移 0009、`/api/cycles`、预测算法、`/cycle` 页面、看板卡片、档案开关 | 能记录经期并看到下次预测；跨用户隔离和算法测试通过 |
+| 8. 生理周期（记录与预测） | 迁移 0011（0009/0010 已用于食物营养素和营养目标）、`/api/cycles`、预测算法、`/cycle` 页面、看板卡片、经前热量 +150 与经期补铁提示 | 能记录经期并看到下次预测；跨用户隔离和算法测试通过 |
 | 9. 周期与建议 | 用户同意后把周期阶段加入建议上下文、周期相关规律、症状统计 | 未同意时 AI 上下文中没有任何周期信息（有测试） |
 
 Sprint 1 期间顺手用几张照片调用一次 DeepSeek 识别接口，提前确认中餐照片的识别效果。
@@ -321,16 +322,17 @@ Sprint 1 期间顺手用几张照片调用一次 DeepSeek 识别接口，提前�
 - **代码计算，不经过 AI：** 和热量参考值一样，算法是纯函数（`backend/app/cycle.py`），用固定假数据测试。
 - **按最敏感的数据处理：**
   - `cycle_periods` 和其他业务表一样启用行级安全（`<table>_owner` 策略），访问别人的记录返回 404。
-  - 审计事件只记录“开启/关闭周期记录”“开启/关闭 AI 共享”，不记录日期和症状。
+  - 审计事件只记录开关变化（周期记录、AI 共享、按周期调整），不记录日期和症状。
   - 删除就是真删除；导出全部数据时包含周期记录。
   - **默认不发给 AI**，用户单独开启后才发送（见 10.5）。
 
 ### 10.2 性别与开关
 
-- `profiles.sex` 保持 `male`/`female`/空。档案页说明改为“性别（用于热量公式和周期记录）”。
-- `cycle_tracking_enabled`（默认 false）：性别选“女”时，档案页主动提示是否开启；不与性别强制绑定，其他情况也可以手动开启，随时可关闭。
+- `profiles.sex` 保持 `male`/`female`/空。
+- `cycle_tracking_enabled`（默认 false）：**只有档案性别为“女”时才能开启**（接口校验，否则 422）；「我的」里的入口也只对女性显示，在 `/cycle` 页面开启/关闭。之后把性别改掉，接口按未开启处理，数据保留。
 - 关闭开关不删除历史记录，只是隐藏入口、接口返回 404；要删除数据，在 `/cycle` 页面单独操作“删除全部周期记录”。
-- `cycle_share_with_ai`（默认 false）：是否允许生成建议时参考周期信息。
+- `cycle_adjust_targets`（默认 true）：按周期调整饮食参考——经前（`luteal`）每日热量参考 +150 kcal（在自己设定的目标或自动参考值上叠加），经期显示补铁提示。由 `/api/cycles/summary` 的 `kcal_bonus` / `tips` 给出。
+- `cycle_share_with_ai`（默认 false）：是否允许生成建议时参考周期信息（Sprint 9 前不在界面显示）。
 
 ### 10.3 数据与校验
 
@@ -368,8 +370,8 @@ Sprint 1 期间顺手用几张照片调用一次 DeepSeek 识别接口，提前�
 
 ### 10.5 与其他功能的衔接
 
-- **看板：** 开启后增加一张卡片：“周期第 N 天 · 经期中”或“预计 X 天后（M 月 D 日前后）”。
-- **`/cycle` 页面：** 顶部“今天来了 / 今天结束了”按钮；中间是当前阶段、预测和提醒；下方是历史列表，可补录、修改、勾选症状和经量。首页入口只在开启后显示。
+- **看板：** 开启后在三个小卡片下方增加一行：“周期第 N 天 · 经期中”或“预计 X 天后（M 月 D 日前后）”。营养卡片的热量参考和提示包含周期调整。
+- **`/cycle` 页面：** 顶部“今天来了 / 今天结束了”按钮；中间是当前阶段、预测、提醒和饮食提示；下方是历史列表，可补录、修改、勾选症状和经量；最下方是设置（按周期调整、关闭周期记录）。
 - **建议（Sprint 9）：** 仅当 `cycle_share_with_ai` 为 true 时，`build_advice_context` 增加一层“周期”：当前阶段、周期第几天、本次经期记录的症状。不发送具体日期和历史。新增规律：
   - 经期第 1–3 天且记录了痛经或疲劳 → 建议降低运动强度、注意休息和补水
   - 黄体期且最近 3 天热量高于目标 → 说明这是常见的食欲变化，不要求节食

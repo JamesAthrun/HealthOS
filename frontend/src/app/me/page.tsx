@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { useConfirm } from "@/lib/confirm";
+import type { CycleSettingsOut } from "@/lib/cycle";
 import { useMe, useSetMe } from "@/lib/me";
 import { useAction } from "@/lib/useAction";
 
@@ -14,6 +16,13 @@ export default function MePage() {
   const router = useRouter();
   const confirm = useConfirm();
   const { busy, error, run } = useAction();
+  // 健康档案性别为女时才显示周期入口
+  const [cycleAvailable, setCycleAvailable] = useState(false);
+
+  useEffect(() => {
+    if (!me) return;
+    api<CycleSettingsOut>("/cycle-settings").then((s) => setCycleAvailable(s.available)).catch(() => setCycleAvailable(false));
+  }, [me]);
 
   async function logout() {
     if (!(await confirm({ title: "退出登录？", confirmText: "退出" }))) return;
@@ -38,6 +47,7 @@ export default function MePage() {
           <li><Link href="/targets/">营养目标（热量、蛋白质、钓…）</Link></li>
           <li><Link href="/profile/">健康档案与热量参考值</Link></li>
           <li><Link href="/weights/">体重与目标</Link></li>
+          {cycleAvailable && <li><Link href="/cycle/">生理周期</Link></li>}
           <li><Link href="/notes/">关于我与食物偏好</Link></li>
         </ul>
       </section>
