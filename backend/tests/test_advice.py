@@ -357,6 +357,7 @@ def test_safety_allows_negated_or_referral_phrases(summary: str) -> None:
         "不舒服时可以服用药物。",
         "不要错过服用保健品。",
         "建议尝试间歇断食。",
+        "痛经时可以吃点止痛药。",
     ],
 )
 def test_safety_still_blocks_unsafe_phrases(summary: str) -> None:
