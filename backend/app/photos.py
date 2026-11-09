@@ -21,10 +21,13 @@ from app.meal_ai import (
     AIProviderError,
     EstimatedNutrition,
     EstimateItemIn,
+    MAX_MEAL_PHOTOS,
+    MULTI_PROMPT_VERSION,
     MealRecognition,
     PROMPT_VERSION,
     estimate_nutrition,
     recognize_meal,
+    recognize_meal_photos,
     recognize_meal_text,
 )
 from app.models import Meal, MealAnalysis, MealPhoto
@@ -314,6 +317,69 @@ def analyze_meal_photo(
 
     try:
         result = recognize_meal(_photo_path(photo.storage_key).read_bytes(), settings, hint=hint)
+    except AIProviderError as exc:
+        analysis.status = "failed"
+        analysis.error_code = exc.code
+        db.commit()
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "AI 识别暂时失败，可稍后重试或手工记录"
+        ) from exc
+
+    analysis.status = "succeeded"
+    analysis.result_json = result.model_dump_json()
+    analysis.error_code = None
+    commit_with_tenant_context(db, user.id)
+    db.refresh(analysis)
+    return _analysis_out(analysis)
+
+
+class MultiPhotoAnalyzeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    photo_ids: list[uuid.UUID] = Field(min_length=1, max_length=MAX_MEAL_PHOTOS)
+    # 识别前写的说明，例如“两个人分着吃”“还喝了一杯奶茶”
+    note: str | None = Field(default=None, max_length=300)
+    # 识别后觉得不准时补充的更正
+    hint: str | None = Field(default=None, max_length=200)
+
+
+@router.post("/meal-recognitions")
+def analyze_meal_photos(body: MultiPhotoAnalyzeIn, user: CurrentUser, db: DbSession) -> MealAnalysisOut:
+    """同一餐的多张照片 + 说明一起识别。结果记在第一张照片上，之后照常用 /meal-photos/{第一张}/confirm 确认。"""
+    if user.ai_consent_at is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "请先同意将饮食照片或文字发送给 AI 服务商处理")
+    photo_ids = list(dict.fromkeys(body.photo_ids))
+    photos = []
+    for photo_id in photo_ids:
+        photo = _owned_photo(db, user, photo_id)
+        if photo is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "照片不存在")
+        photos.append(photo)
+    settings = get_settings()
+    if not settings.deepseek_api_key:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 尚未配置，可继续手工记录")
+    note = body.note.strip() if body.note and body.note.strip() else None
+    hint = body.hint.strip() if body.hint and body.hint.strip() else None
+
+    primary = photos[0]
+    analysis = db.scalar(
+        select(MealAnalysis).where(MealAnalysis.photo_id == primary.id, MealAnalysis.user_id == user.id)
+    )
+    if analysis and analysis.status == "confirmed":
+        raise HTTPException(status.HTTP_409_CONFLICT, "这张照片已确认记录，不能再重新识别")
+    if analysis is None:
+        analysis = MealAnalysis(user_id=user.id, photo_id=primary.id, provider="deepseek")
+        db.add(analysis)
+    analysis.status = "processing"
+    analysis.error_code = None
+    analysis.model = settings.deepseek_model
+    analysis.prompt_version = MULTI_PROMPT_VERSION
+    commit_with_tenant_context(db, user.id)
+    db.refresh(analysis)
+
+    try:
+        images = [_photo_path(photo.storage_key).read_bytes() for photo in photos]
+        result = recognize_meal_photos(images, settings, note=note, hint=hint)
     except AIProviderError as exc:
         analysis.status = "failed"
         analysis.error_code = exc.code

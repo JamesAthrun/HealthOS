@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { type MealDraft, MealForm } from "@/components/forms/MealForm";
 import type { FormProps } from "@/components/forms/types";
@@ -18,6 +18,23 @@ type Recognition = {
 type Mode = "choose" | "photo" | "text" | "voice" | "manual";
 
 const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
+const MAX_PHOTOS = 4;
+
+type PickedPhoto = { file: File; preview: string; id: string | null };
+
+function PhotoStrip({ photos, onRemove }: { photos: PickedPhoto[]; onRemove?: (index: number) => void }) {
+  return (
+    <div className="photo-strip">
+      {photos.map((photo, index) => (
+        <div key={photo.preview} className="photo-thumb" role="img" aria-label={`第 ${index + 1} 张照片`} style={{ backgroundImage: `url(${photo.preview})` }}>
+          {onRemove && (
+            <button type="button" aria-label={`移除第 ${index + 1} 张`} onClick={() => onRemove(index)}>✕</button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function toDraft(result: Recognition, photoId?: string): MealDraft {
   return {
@@ -45,46 +62,59 @@ export function MealCapture({ day, onDone }: Omit<FormProps<Meal>, "initial">) {
   const { busy, error, setError, run } = useAction();
   const [mode, setMode] = useState<Mode>("choose");
   const [consent, setConsent] = useState<Consent | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState("");
-  const [photoId, setPhotoId] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
+  const [note, setNote] = useState("");
   const [text, setText] = useState("");
   const [hint, setHint] = useState("");
   const [draft, setDraft] = useState<MealDraft | null>(null);
   const [version, setVersion] = useState(0);
+  const previewsRef = useRef<string[]>([]);
 
   useEffect(() => {
     api<Consent>("/ai-consent").then(setConsent).catch(() => setConsent({ granted: false }));
   }, []);
 
-  useEffect(() => () => {
-    if (preview) URL.revokeObjectURL(preview);
-  }, [preview]);
+  useEffect(() => {
+    previewsRef.current = photos.map((p) => p.preview);
+  }, [photos]);
+
+  // 关闭面板时释放所有预览图
+  useEffect(() => () => previewsRef.current.forEach((url) => URL.revokeObjectURL(url)), []);
 
   function showDraft(next: MealDraft) {
     setDraft(next);
     setVersion((v) => v + 1);
   }
 
-  function pickFile(next: File | null) {
-    if (preview) URL.revokeObjectURL(preview);
-    setFile(next);
-    setPreview(next ? URL.createObjectURL(next) : "");
-    setPhotoId(null);
-    setError("");
+  function addFiles(list: FileList | null) {
+    if (!list) return;
+    const room = MAX_PHOTOS - photos.length;
+    const picked = Array.from(list).slice(0, room).map((file) => ({ file, preview: URL.createObjectURL(file), id: null }));
+    if (list.length > room) setError(`最多 ${MAX_PHOTOS} 张照片`);
+    else setError("");
+    setPhotos((current) => [...current, ...picked]);
   }
 
-  async function analyzePhoto(withHint?: string) {
-    if (!file) return;
+  function removePhoto(index: number) {
+    URL.revokeObjectURL(photos[index].preview);
+    setPhotos((current) => current.filter((_, i) => i !== index));
+  }
+
+  async function analyzePhotos(withHint?: string) {
+    if (photos.length === 0) return;
     await run(async () => {
-      const id = photoId ?? (await uploadApi<{ id: string }>("/meal-photos", file)).id;
-      setPhotoId(id);
-      const analysis = await api<{ result: Recognition | null }>(`/meal-photos/${id}/analyze`, {
+      // 已上传过的不重复上传
+      const ids: string[] = [];
+      for (const photo of photos) {
+        ids.push(photo.id ?? (await uploadApi<{ id: string }>("/meal-photos", photo.file)).id);
+      }
+      setPhotos((current) => current.map((p, i) => ({ ...p, id: ids[i] ?? p.id })));
+      const analysis = await api<{ result: Recognition | null }>("/meal-recognitions", {
         method: "POST",
-        body: withHint ? { hint: withHint } : undefined,
+        body: { photo_ids: ids, note: note.trim() || null, hint: withHint ?? null },
       });
       if (!analysis.result) throw new Error("识别结果为空");
-      showDraft(toDraft(analysis.result, id));
+      showDraft(toDraft(analysis.result, ids[0]));
       setHint("");
     }, "识别失败，可稍后重试或直接填写");
   }
@@ -105,19 +135,19 @@ export function MealCapture({ day, onDone }: Omit<FormProps<Meal>, "initial">) {
     return (
       <div className="stack">
         <button type="button" className="link-button" onClick={() => setDraft(null)}>
-          ‹ {mode === "photo" ? "换张照片" : "改一下描述"}
+          ‹ {mode === "photo" ? "改照片或说明" : "改一下描述"}
         </button>
         {error && <p className="error" role="alert">{error}</p>}
         {mode === "photo" && (
           <>
-            {preview && <div className="photo-preview" role="img" aria-label="餐食照片" style={{ backgroundImage: `url(${preview})` }} />}
+            <PhotoStrip photos={photos} />
             <details className="more consent-box">
               <summary>识别不准？告诉 AI 哪里不对</summary>
               <label>
                 说明
                 <textarea maxLength={200} value={hint} placeholder="例如：这是牛肉面，不是米饭；只吃了一半" onChange={(e) => setHint(e.target.value)} />
               </label>
-              <button type="button" className="secondary" disabled={busy || !hint.trim()} onClick={() => void analyzePhoto(hint.trim())}>
+              <button type="button" className="secondary" disabled={busy || !hint.trim()} onClick={() => void analyzePhotos(hint.trim())}>
                 {busy ? "识别中…" : "按说明重新识别"}
               </button>
             </details>
@@ -153,26 +183,38 @@ export function MealCapture({ day, onDone }: Omit<FormProps<Meal>, "initial">) {
         </div>
       )}
 
-      {mode === "photo" && (preview ? (
+      {mode === "photo" && (
         <>
-          <div className="photo-preview" role="img" aria-label="待识别的餐食照片" style={{ backgroundImage: `url(${preview})` }} />
-          <button type="button" disabled={busy || !consent?.granted} onClick={() => void analyzePhoto()}>
-            {busy ? "识别中…（约 10–30 秒）" : "识别这张照片"}
-          </button>
-          <button type="button" className="secondary" disabled={busy} onClick={() => pickFile(null)}>换一张</button>
+          {photos.length > 0 && <PhotoStrip photos={photos} onRemove={busy ? undefined : removePhoto} />}
+          {photos.length < MAX_PHOTOS && (
+            <div className="add-grid">
+              <label className="file-tile">
+                <span>📷</span>{photos.length ? "再拍一张" : "拍照"}
+                <input type="file" accept={ACCEPT} capture="environment" hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+              </label>
+              <label className="file-tile">
+                <span>🖼️</span>从相册选
+                <input type="file" accept={ACCEPT} multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+              </label>
+            </div>
+          )}
+          <p className="muted">同一餐最多 {MAX_PHOTOS} 张：可以分开拍几个菜，或拍饭前饭后对比。</p>
+          <label>
+            补充说明（可选）
+            <textarea
+              maxLength={300}
+              value={note}
+              placeholder="例如：两个人一起吃，我吃了一半；另外还喝了一杯奶茶"
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
+          {photos.length > 0 && (
+            <button type="button" disabled={busy || !consent?.granted} onClick={() => void analyzePhotos()}>
+              {busy ? `识别中…（${photos.length} 张，约 ${photos.length > 1 ? "20–40" : "10–30"} 秒）` : `识别${photos.length > 1 ? ` ${photos.length} 张照片` : "这张照片"}`}
+            </button>
+          )}
         </>
-      ) : (
-        <div className="add-grid">
-          <label className="file-tile">
-            <span>📷</span>拍照
-            <input type="file" accept={ACCEPT} capture="environment" hidden onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
-          </label>
-          <label className="file-tile">
-            <span>🖼️</span>从相册选
-            <input type="file" accept={ACCEPT} hidden onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
-          </label>
-        </div>
-      ))}
+      )}
 
       {(mode === "text" || mode === "voice") && (
         <>

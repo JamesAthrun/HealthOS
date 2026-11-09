@@ -837,6 +837,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-recognitions:
+    post:
+      tags:
+      - meal photos
+      summary: Analyze Meal Photos
+      description: 同一餐的多张照片 + 说明一起识别。结果记在第一张照片上，之后照常用 /meal-photos/{第一张}/confirm 确认。
+      operationId: analyze_meal_photos_api_meal_recognitions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MultiPhotoAnalyzeIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealAnalysisOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
   /api/meal-text/analyze:
     post:
       tags:
@@ -2621,6 +2649,33 @@ components:
       required:
       - text
       title: MealTextIn
+    MultiPhotoAnalyzeIn:
+      properties:
+        photo_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          maxItems: 4
+          minItems: 1
+          title: Photo Ids
+        note:
+          anyOf:
+          - type: string
+            maxLength: 300
+          - type: 'null'
+          title: Note
+        hint:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Hint
+      additionalProperties: false
+      type: object
+      required:
+      - photo_ids
+      title: MultiPhotoAnalyzeIn
     NoteIn:
       properties:
         content:
