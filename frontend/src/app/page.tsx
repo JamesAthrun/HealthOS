@@ -8,21 +8,30 @@ import { Fab } from "@/components/Fab";
 import { RecordSheet } from "@/components/RecordSheet";
 import { TodayNutrition, useDailyTargets } from "@/components/TodayNutrition";
 import { api, ApiError } from "@/lib/api";
+import { cycleHeadline, type CycleSummary } from "@/lib/cycle";
 import { dayIntake } from "@/lib/dailyNutrition";
 import { signedKg, type TodayDashboard, type TrendDashboard, type WeightSummary } from "@/lib/health";
 import { type AllRecords, dayKey, entriesForDay, fetchAllRecords, QUALITY_LABELS } from "@/lib/records";
 import { useMe } from "@/lib/useMe";
 
-type HomeData = { today: TodayDashboard; trends: TrendDashboard; weight: WeightSummary | null; records: AllRecords };
+type HomeData = {
+  today: TodayDashboard;
+  trends: TrendDashboard;
+  weight: WeightSummary | null;
+  cycle: CycleSummary | null;
+  records: AllRecords;
+};
 
 async function fetchHome(): Promise<HomeData> {
-  const [today, trends, weight, records] = await Promise.all([
+  const [today, trends, weight, cycle, records] = await Promise.all([
     api<TodayDashboard>("/dashboard/today"),
     api<TrendDashboard>("/dashboard/trends?days=7"),
     api<WeightSummary>("/weights/summary").catch(() => null),
+    // 未开启周期记录时返回 404，不显示卡片
+    api<CycleSummary>("/cycles/summary").catch(() => null),
     fetchAllRecords(),
   ]);
-  return { today, trends, weight, records };
+  return { today, trends, weight, cycle, records };
 }
 
 export default function HomePage() {
@@ -63,6 +72,7 @@ export default function HomePage() {
       {error && <p className="error" role="alert">{error}</p>}
       {!data && !error && <section className="card"><p className="muted">正在整理今天的记录…</p></section>}
       {data && <MiniStats data={data} />}
+      {data?.cycle && <CycleCard summary={data.cycle} />}
       {data && (
         <TodayNutrition
           intake={dayIntake(data.records.meals.filter((meal) => dayKey(meal.eaten_at) === dayKey(new Date())))}
@@ -123,6 +133,21 @@ function MiniStats({ data }: { data: HomeData }) {
         <small>{data.weight?.to_target_kg != null ? `距目标 ${signedKg(data.weight.to_target_kg)}` : "体重"}</small>
       </Link>
     </div>
+  );
+}
+
+/** 生理周期：一句话状态，点进去记录 */
+function CycleCard({ summary }: { summary: CycleSummary }) {
+  const { title, detail } = cycleHeadline(summary);
+  return (
+    <Link className="cycle-card" href="/cycle/">
+      <span aria-hidden="true">🌸</span>
+      <div>
+        <strong>{title === "—" ? "生理周期" : title}</strong>
+        <small className="muted">{detail}</small>
+      </div>
+      <span aria-hidden="true" className="muted">›</span>
+    </Link>
   );
 }
 

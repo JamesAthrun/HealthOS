@@ -11,6 +11,10 @@ export type DailyTargets = {
   fiber_g: number;
   sugar_max_g: number;
   sodium_max_mg: number;
+  /** 经前加的热量（已算进 kcal） */
+  kcalBonus: number;
+  /** 和周期阶段相关的饮食提示 */
+  cycleTips: string[];
 };
 
 /** 用户在“营养目标”页自己设定的值；为空表示用自动计算的参考值 */
@@ -28,11 +32,19 @@ export const NO_OVERRIDES: TargetOverrides = {
   daily_kcal_target: null, protein_g: null, carbs_g: null, fat_g: null, fiber_g: null, sugar_max_g: null, sodium_max_mg: null,
 };
 
-export function dailyTargets(opts: { overrides?: TargetOverrides; maintenanceKcal: number | null; weightKg: number | null }): DailyTargets {
+export function dailyTargets(opts: {
+  overrides?: TargetOverrides;
+  maintenanceKcal: number | null;
+  weightKg: number | null;
+  cycle?: { kcal_bonus: number; tips: string[] } | null;
+}): DailyTargets {
   const o = opts.overrides ?? NO_OVERRIDES;
-  const kcal = o.daily_kcal_target ?? opts.maintenanceKcal ?? 2000;
+  const kcalBonus = opts.cycle?.kcal_bonus ?? 0;
+  const kcal = (o.daily_kcal_target ?? opts.maintenanceKcal ?? 2000) + kcalBonus;
   return {
     kcal,
+    kcalBonus,
+    cycleTips: opts.cycle?.tips ?? [],
     kcalSource: o.daily_kcal_target ? "目标" : opts.maintenanceKcal ? "维持参考" : "通用参考",
     // 成年人约每公斤体重 1 g；没有体重时按热量的 15%
     protein_g: o.protein_g ?? Math.round(opts.weightKg ? opts.weightKg * 1.0 : (kcal * 0.15) / 4),

@@ -1516,6 +1516,233 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/cycle-settings:
+    get:
+      tags:
+      - cycles
+      summary: Get Cycle Settings
+      operationId: get_cycle_settings_api_cycle_settings_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CycleSettingsOut'
+      security:
+      - SessionCookie: []
+    put:
+      tags:
+      - cycles
+      summary: Put Cycle Settings
+      operationId: put_cycle_settings_api_cycle_settings_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CycleSettings'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CycleSettingsOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/cycles:
+    get:
+      tags:
+      - cycles
+      summary: List Cycles
+      operationId: list_cycles_api_cycles_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CycleOut'
+                type: array
+                title: Response List Cycles Api Cycles Get
+      security:
+      - SessionCookie: []
+    post:
+      tags:
+      - cycles
+      summary: Create Cycle
+      operationId: create_cycle_api_cycles_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CycleIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CycleOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+    delete:
+      tags:
+      - cycles
+      summary: Delete All Cycles
+      operationId: delete_all_cycles_api_cycles_delete
+      responses:
+        '204':
+          description: Successful Response
+      security:
+      - SessionCookie: []
+  /api/cycles/summary:
+    get:
+      tags:
+      - cycles
+      summary: Cycles Summary
+      operationId: cycles_summary_api_cycles_summary_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CycleSummary'
+      security:
+      - SessionCookie: []
+  /api/cycles/start-today:
+    post:
+      tags:
+      - cycles
+      summary: Start Today
+      operationId: start_today_api_cycles_start_today_post
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CycleOut'
+      security:
+      - SessionCookie: []
+  /api/cycles/end-today:
+    post:
+      tags:
+      - cycles
+      summary: End Today
+      operationId: end_today_api_cycles_end_today_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CycleOut'
+      security:
+      - SessionCookie: []
+  /api/cycles/{cycle_id}:
+    get:
+      tags:
+      - cycles
+      summary: Get Cycle
+      operationId: get_cycle_api_cycles__cycle_id__get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: cycle_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Cycle Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CycleOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - cycles
+      summary: Patch Cycle
+      operationId: patch_cycle_api_cycles__cycle_id__patch
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: cycle_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Cycle Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CyclePatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CycleOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - cycles
+      summary: Delete Cycle
+      operationId: delete_cycle_api_cycles__cycle_id__delete
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: cycle_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Cycle Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/health:
     get:
       summary: Health
@@ -1770,6 +1997,294 @@ components:
       - granted
       - granted_at
       title: ConsentOut
+    CycleIn:
+      properties:
+        start_date:
+          type: string
+          format: date
+          title: Start Date
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+        flow:
+          anyOf:
+          - type: string
+            enum:
+            - light
+            - medium
+            - heavy
+          - type: 'null'
+          title: Flow
+        symptoms:
+          items:
+            type: string
+            enum:
+            - cramps
+            - bloating
+            - headache
+            - mood
+            - breast_tenderness
+            - fatigue
+            - acne
+          type: array
+          maxItems: 7
+          title: Symptoms
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      required:
+      - start_date
+      title: CycleIn
+    CycleOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        start_date:
+          type: string
+          format: date
+          title: Start Date
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+        flow:
+          anyOf:
+          - type: string
+            enum:
+            - light
+            - medium
+            - heavy
+          - type: 'null'
+          title: Flow
+        symptoms:
+          items:
+            type: string
+            enum:
+            - cramps
+            - bloating
+            - headache
+            - mood
+            - breast_tenderness
+            - fatigue
+            - acne
+          type: array
+          title: Symptoms
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+      type: object
+      required:
+      - id
+      - start_date
+      - end_date
+      - flow
+      - symptoms
+      - notes
+      title: CycleOut
+    CyclePatch:
+      properties:
+        start_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Start Date
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+        flow:
+          anyOf:
+          - type: string
+            enum:
+            - light
+            - medium
+            - heavy
+          - type: 'null'
+          title: Flow
+        symptoms:
+          anyOf:
+          - items:
+              type: string
+              enum:
+              - cramps
+              - bloating
+              - headache
+              - mood
+              - breast_tenderness
+              - fatigue
+              - acne
+            type: array
+            maxItems: 7
+          - type: 'null'
+          title: Symptoms
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      title: CyclePatch
+    CycleSettings:
+      properties:
+        tracking_enabled:
+          type: boolean
+          title: Tracking Enabled
+        share_with_ai:
+          type: boolean
+          title: Share With Ai
+        adjust_targets:
+          type: boolean
+          title: Adjust Targets
+          description: 按周期调整热量参考并给饮食提示
+      additionalProperties: false
+      type: object
+      required:
+      - tracking_enabled
+      - share_with_ai
+      - adjust_targets
+      title: CycleSettings
+    CycleSettingsOut:
+      properties:
+        tracking_enabled:
+          type: boolean
+          title: Tracking Enabled
+        share_with_ai:
+          type: boolean
+          title: Share With Ai
+        adjust_targets:
+          type: boolean
+          title: Adjust Targets
+          description: 按周期调整热量参考并给饮食提示
+        available:
+          type: boolean
+          title: Available
+          description: 健康档案性别为女时才能开启
+      additionalProperties: false
+      type: object
+      required:
+      - tracking_enabled
+      - share_with_ai
+      - adjust_targets
+      - available
+      title: CycleSettingsOut
+    CycleSummary:
+      properties:
+        has_data:
+          type: boolean
+          title: Has Data
+        cycle_day:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cycle Day
+          description: 今天是本周期第几天（最近一次开始日为第 1 天）
+        phase:
+          anyOf:
+          - type: string
+            enum:
+            - menstrual
+            - follicular
+            - ovulation
+            - luteal
+            - late
+          - type: 'null'
+          title: Phase
+        in_period:
+          type: boolean
+          title: In Period
+        avg_cycle_days:
+          type: integer
+          title: Avg Cycle Days
+        avg_period_days:
+          type: integer
+          title: Avg Period Days
+        insufficient_data:
+          type: boolean
+          title: Insufficient Data
+          description: 有效周期少于 2 个，按 28 天估算
+        next_start:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Next Start
+        next_start_earliest:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Next Start Earliest
+        next_start_latest:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Next Start Latest
+        days_until_next:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Days Until Next
+        late_days:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Late Days
+        alerts:
+          items:
+            type: string
+          type: array
+          title: Alerts
+        kcal_bonus:
+          type: integer
+          title: Kcal Bonus
+          description: 今天的热量参考要加多少（经前 +150，关闭自动调整时为 0）
+          default: 0
+        tips:
+          items:
+            type: string
+          type: array
+          title: Tips
+          description: 和当前阶段相关的饮食提示
+        notice:
+          type: string
+          title: Notice
+          default: 预测只是根据历史记录的估算，仅用于提前准备，不能用于避孕或备孕判断
+      type: object
+      required:
+      - has_data
+      - cycle_day
+      - phase
+      - in_period
+      - avg_cycle_days
+      - avg_period_days
+      - insufficient_data
+      - next_start
+      - next_start_earliest
+      - next_start_latest
+      - days_until_next
+      - late_days
+      - alerts
+      title: CycleSummary
     DailySummary:
       properties:
         date:

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
+import type { CycleSummary } from "@/lib/cycle";
 import {
   dailyTargets,
   type DailyTargets,
@@ -35,14 +36,18 @@ export async function fetchTargetInputs(): Promise<TargetInputs> {
   };
 }
 
-/** 每日参考值（自己设定的优先，其余自动计算）；version 变化时重新读取 */
+/** 每日参考值（自己设定的优先，其余自动计算；开启周期记录时叠加周期调整）；version 变化时重新读取 */
 export function useDailyTargets(version = 0): DailyTargets {
   const [targets, setTargets] = useState<DailyTargets>(() => dailyTargets({ maintenanceKcal: null, weightKg: null }));
 
   useEffect(() => {
     let active = true;
-    fetchTargetInputs().then((inputs) => {
-      if (active) setTargets(dailyTargets(inputs));
+    Promise.all([
+      fetchTargetInputs(),
+      // 未开启周期记录时返回 404
+      api<CycleSummary>("/cycles/summary").catch(() => null),
+    ]).then(([inputs, cycle]) => {
+      if (active) setTargets(dailyTargets({ ...inputs, cycle }));
     });
     return () => { active = false; };
   }, [version]);
@@ -98,7 +103,9 @@ function Bar({ label, value, target, unit, color, limit = false }: {
 
 /** 今日营养：热量圆环 + 各营养素进度条 + 简单建议 */
 export function TodayNutrition({ intake, targets, showTips = true }: { intake: DayIntake; targets: DailyTargets; showTips?: boolean }) {
-  const tips = showTips ? intakeTips(intake, targets) : [];
+  const tips = showTips
+    ? [...intakeTips(intake, targets), ...targets.cycleTips.map((text) => ({ icon: "🌸", text }))]
+    : [];
   return (
     <section className="card stack">
       <div className="page-head">
@@ -124,7 +131,8 @@ export function TodayNutrition({ intake, targets, showTips = true }: { intake: D
         </ul>
       )}
       <p className="muted">
-        {targets.kcalSource === "目标" ? "按你设定的营养目标计算" : `热量按${targets.kcalSource}估算`}，仅供参考。
+        {targets.kcalSource === "目标" ? "按你设定的营养目标计算" : `热量按${targets.kcalSource}估算`}
+        {targets.kcalBonus > 0 && `（含经前 +${targets.kcalBonus} kcal）`}，仅供参考。
         {" "}<Link href="/targets/">调整目标 ›</Link>
       </p>
     </section>
