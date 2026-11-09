@@ -486,6 +486,26 @@ def _validate_plan_timing(content: AdviceContent, context: dict[str, object]) ->
             raise AdviceProviderError("AI_INVALID_PLAN_DATE")
 
 
+_CYCLE_WORDS = ("生理期", "生理周期", "经期", "月经", "经前", "黄体期", "卵泡期", "排卵", "痛经")
+
+
+def strip_cycle_mentions(content: AdviceContent, context: dict[str, object]) -> AdviceContent:
+    """没有分享周期时不得提及：只在 limitations 里的直接删掉，写进正文则重新生成。"""
+    if "cycle" in context:
+        return content
+    body = " ".join(
+        [content.summary]
+        + [f"{item.action} {item.rationale}" for item in content.actions]
+        + [group.reason for group in content.meal_plan]
+    )
+    if any(word in body for word in _CYCLE_WORDS):
+        raise AdviceProviderError("AI_UNSHARED_CYCLE")
+    limitations = [
+        item for item in content.limitations if not any(word in item for word in _CYCLE_WORDS)
+    ]
+    return content.model_copy(update={"limitations": limitations})
+
+
 _ALLERGY_SPLIT_RE = re.compile(r"[，,、;；/\s]+|和|及|与|或")
 _ALLERGY_SUFFIXES = ("过敏", "不耐受")
 _NO_ALLERGY_WORDS = {"无", "没有", "暂无", "none", "no", "n/a"}
@@ -569,6 +589,7 @@ def generate_advice(context: dict[str, object], settings: Settings) -> ProviderR
             allowed_refs = {item["id"] for item in context.get("observations", [])}  # type: ignore[index]
             _validate_safety(content, allowed_refs)
             _validate_plan_timing(content, context)
+            content = strip_cycle_mentions(content, context)
             content = filter_meal_plan(content, context)
             usage = body.get("usage", {})
             return ProviderResult(

@@ -4,7 +4,16 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
-from app.advice_service import build_advice_context, derive_cycle_observations
+import pytest
+
+from app.advice_service import (
+    AdviceAction,
+    AdviceContent,
+    AdviceProviderError,
+    build_advice_context,
+    derive_cycle_observations,
+    strip_cycle_mentions,
+)
 from app.cycle import PeriodSpan, summarize_cycles
 from app.dashboard import DailySummary
 from app.db import SessionLocal
@@ -262,6 +271,16 @@ def test_advice_context_includes_cycle_layer_when_shared():
     # 关闭周期记录后同样不再发送
     client.put("/api/cycle-settings", json={**SETTINGS_OFF, "share_with_ai": True})
     assert "cycle" not in _advice_context("alice")[0]
+
+
+def test_cycle_mentions_are_removed_when_not_shared():
+    action = AdviceAction(category="general", action="早点睡。", rationale="资料有限。", confidence="low")
+    content = AdviceContent(summary="先从小事开始。", actions=[action], limitations=["无生理周期数据。", "睡眠记录少。"])
+    assert strip_cycle_mentions(content, {}).limitations == ["睡眠记录少。"]
+    assert strip_cycle_mentions(content, {"cycle": {}}).limitations == content.limitations
+    in_body = content.model_copy(update={"summary": "经期注意休息。"})
+    with pytest.raises(AdviceProviderError, match="AI_UNSHARED_CYCLE"):
+        strip_cycle_mentions(in_body, {})
 
 
 def test_luteal_appetite_observation():
