@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { type ComponentProps, useId, useState } from "react";
 
 import { fillFromHistory, type FoodHistory } from "@/lib/foodHistory";
 import { FoodPrefButtons, type Sentiment } from "@/lib/foodPrefs";
@@ -16,6 +16,20 @@ import {
   scaleItem,
 } from "@/lib/nutrition";
 import { useAction } from "@/lib/useAction";
+
+/** 数字输入：保留用户正在输入的文本，清空时不会被立刻填回 0 */
+function NumberInput({ value, onText, ...props }: { value: number | null | undefined; onText: (text: string) => void } & Omit<ComponentProps<"input">, "value" | "onChange" | "type">) {
+  const external = value ?? null;
+  const [text, setText] = useState(external === null || external === 0 ? "" : String(external));
+  const [prev, setPrev] = useState(external);
+  // 只在外部数值真的变了（例如估算、按历史填写）时才覆盖输入框
+  if (external !== prev) {
+    setPrev(external);
+    const parsed = text === "" ? null : Number(text);
+    if (parsed !== external && !(parsed === null && external === 0)) setText(external === null ? "" : String(external));
+  }
+  return <input {...props} type="number" inputMode="decimal" value={text} onChange={(e) => { setText(e.target.value); onText(e.target.value); }} />;
+}
 
 type Prefs = {
   find: (name: string) => { sentiment: Sentiment } | undefined;
@@ -85,7 +99,7 @@ export function FoodItemsEditor({
           </label>
           {prefs && <FoodPrefButtons name={item.name} current={prefs.find(item.name)?.sentiment} onToggle={prefs.toggle} />}
           <div className="two-col">
-            <label>份量<input type="number" inputMode="decimal" min="0.01" step="0.01" required value={item.quantity} onChange={(e) => update(index, "quantity", e.target.value)} /></label>
+            <label>份量<NumberInput min="0.01" step="0.01" required value={item.quantity} onText={(text) => update(index, "quantity", text)} /></label>
             <label>单位<input required maxLength={20} value={item.unit} placeholder="碗、个、g" onChange={(e) => update(index, "unit", e.target.value)} /></label>
           </div>
           {needsEstimate(item) ? (
@@ -103,19 +117,17 @@ export function FoodItemsEditor({
                 <div className="two-col">
                 <label>
                   热量（kcal）
-                  <input type="number" inputMode="decimal" min="0" step="0.1" placeholder="0" value={item.kcal || ""} onChange={(e) => update(index, "kcal", e.target.value || "0")} />
+                  <NumberInput min="0" step="0.1" placeholder="0" value={item.kcal} onText={(text) => update(index, "kcal", text || "0")} />
                 </label>
                 {NUTRIENTS.map(({ key, label, unit }) => (
                   <label key={key}>
                     {label}（{unit}）
-                    <input
-                      type="number"
-                      inputMode="decimal"
+                    <NumberInput
                       min="0"
                       step={unit === "mg" ? "1" : "0.1"}
-                      value={item[key] ?? ""}
+                      value={item[key]}
                       placeholder={OPTIONAL_NUTRIENTS.has(key) ? "未知" : "0"}
-                      onChange={(e) => update(index, key, OPTIONAL_NUTRIENTS.has(key) ? e.target.value : e.target.value || "0")}
+                      onText={(text) => update(index, key, OPTIONAL_NUTRIENTS.has(key) ? text : text || "0")}
                     />
                   </label>
                 ))}

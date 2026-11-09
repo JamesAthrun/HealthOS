@@ -859,6 +859,34 @@ a.button.secondary {
   height: 6px;
 }
 
+.photo-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.photo-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background-color: #edf1ef;
+  background-position: center;
+  background-size: cover;
+}
+
+.photo-thumb button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.6);
+  font-size: 12px;
+  line-height: 24px;
+}
+
 .item-nutrients {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

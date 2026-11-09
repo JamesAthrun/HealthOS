@@ -311,6 +311,59 @@ def test_photo_upload_rejects_invalid_content():
     assert response.status_code == 415
 
 
+def test_multi_photo_recognition_sends_all_images_and_note(monkeypatch):
+    import app.meal_ai as meal_ai
+
+    sent = _fake_deepseek(monkeypatch, {
+        "meal_type": "dinner",
+        "food_items": [{"name": "番茄炒蛋", "quantity": 1, "unit": "份", "kcal": 300, "confidence": 0.8},
+                       {"name": "奶茶", "quantity": 1, "unit": "杯", "kcal": 350, "confidence": 0.4}],
+        "overall_confidence": 0.7,
+        "warnings": ["奶茶来自你的说明"],
+    })
+    settings = get_settings().model_copy(update={"deepseek_api_key": "test-key"})
+    result = meal_ai.recognize_meal_photos([b"a", b"b"], settings, note="还喝了一杯奶茶")
+    assert [i.name for i in result.food_items] == ["番茄炒蛋", "奶茶"]
+    content = sent[0]["messages"][1]["content"]
+    assert [part["type"] for part in content] == ["image_url", "image_url", "text"]
+    assert "奶茶" in content[-1]["text"]
+
+
+def test_multi_photo_endpoint_validates_and_confirms_via_first_photo(monkeypatch):
+    alice = authenticated("alice")
+    bob = authenticated("bob")
+    ids = [upload(alice, image_bytes(color)).json()["id"] for color in ("red", "blue")]
+    other = upload(bob, image_bytes("green")).json()["id"]
+    assert alice.post("/api/meal-recognitions", json={"photo_ids": ids}).status_code == 403
+    alice.put("/api/ai-consent")
+    assert alice.post("/api/meal-recognitions", json={"photo_ids": []}).status_code == 422
+    assert alice.post("/api/meal-recognitions", json={"photo_ids": ids * 3}).status_code == 422
+    assert alice.post("/api/meal-recognitions", json={"photo_ids": [ids[0], other]}).status_code == 404
+
+    monkeypatch.setattr(get_settings(), "deepseek_api_key", "test-key")
+    calls = []
+
+    def fake(images, _settings, note=None, hint=None):
+        calls.append((len(images), note, hint))
+        return MealRecognition.model_validate({
+            "meal_type": "lunch",
+            "food_items": [{"name": "米饭", "quantity": 1, "unit": "碗", "kcal": 230, "confidence": 0.9}],
+            "overall_confidence": 0.9,
+        })
+
+    monkeypatch.setattr(photos_module, "recognize_meal_photos", fake)
+    analyzed = alice.post("/api/meal-recognitions", json={"photo_ids": ids, "note": " 两人分 "})
+    assert analyzed.status_code == 200
+    assert analyzed.json()["photo_id"] == ids[0]
+    assert calls[-1] == (2, "两人分", None)
+
+    meal = {"eaten_at": "2026-11-06T12:00:00+08:00", "meal_type": "lunch",
+            "food_items": [{"name": "米饭", "quantity": 1, "unit": "碗", "kcal": 230}]}
+    assert alice.post(f"/api/meal-photos/{ids[0]}/confirm", json=meal).status_code == 201
+    # 已确认后不能再重新识别
+    assert alice.post("/api/meal-recognitions", json={"photo_ids": ids, "hint": "x"}).status_code == 409
+
+
 def test_ai_draft_requires_consent_and_only_counts_after_confirmation(monkeypatch):
     client = authenticated("alice")
     photo_id = upload(client, image_bytes("gold")).json()["id"]
