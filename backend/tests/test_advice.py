@@ -21,7 +21,7 @@ from app.advice_service import (
 from app.config import Settings, get_settings
 from app.dashboard import DailySummary
 from app.db import SessionLocal, engine
-from app.audit import set_tenant_context
+from app.audit import commit_with_tenant_context, set_tenant_context
 from app.models import Advice, User, UserNote
 from tests.conftest import create_user, login, new_client
 
@@ -154,7 +154,7 @@ def test_note_expiry_requires_timezone_and_future_value() -> None:
 
 
 def test_planning_consent_is_separate_and_advice_flow(monkeypatch) -> None:
-    create_user("alice")
+    alice = create_user("alice")
     client = new_client()
     login(client, "alice")
 
@@ -174,6 +174,7 @@ def test_planning_consent_is_separate_and_advice_flow(monkeypatch) -> None:
     assert generated["content"]["actions"][0]["evidence_refs"] == ["exercise-none-3d"]
 
     with SessionLocal() as db:
+        set_tenant_context(db, alice.id)
         row = db.get(Advice, uuid.UUID(advice_id))
         context = json.loads(row.context_json)
         assert "username" not in row.context_json
@@ -443,6 +444,7 @@ def test_context_contains_recent_feedback_and_matching_weekly_plan() -> None:
     )
     with SessionLocal() as db:
         attached_user = db.scalar(select(User).where(User.id == user.id))
+        set_tenant_context(db, user.id)
         db.add_all(
             [
                 Advice(
@@ -473,7 +475,7 @@ def test_context_contains_recent_feedback_and_matching_weekly_plan() -> None:
                 ),
             ]
         )
-        db.commit()
+        commit_with_tenant_context(db, user.id)
         context, _observations = build_advice_context(
             db, attached_user, kind="daily", for_date=target
         )
@@ -500,6 +502,7 @@ def test_rejected_weekly_plan_is_not_used_for_daily_advice() -> None:
     )
     with SessionLocal() as db:
         attached_user = db.scalar(select(User).where(User.id == user.id))
+        set_tenant_context(db, user.id)
         db.add(
             Advice(
                 user_id=user.id,
@@ -516,7 +519,7 @@ def test_rejected_weekly_plan_is_not_used_for_daily_advice() -> None:
                 prompt_version="test",
             )
         )
-        db.commit()
+        commit_with_tenant_context(db, user.id)
         context, _observations = build_advice_context(
             db, attached_user, kind="daily", for_date=target
         )
@@ -527,6 +530,7 @@ def test_rejected_weekly_plan_is_not_used_for_daily_advice() -> None:
 def test_old_pending_advice_is_marked_interrupted() -> None:
     user = create_user("alice")
     with SessionLocal() as db:
+        set_tenant_context(db, user.id)
         stale = Advice(
             user_id=user.id,
             kind="daily",
@@ -540,7 +544,7 @@ def test_old_pending_advice_is_marked_interrupted() -> None:
             created_at=datetime.now(timezone.utc) - timedelta(minutes=10),
         )
         db.add(stale)
-        db.commit()
+        commit_with_tenant_context(db, user.id)
         stale_id = stale.id
 
     client = new_client()

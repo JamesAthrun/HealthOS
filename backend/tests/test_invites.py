@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, update
 
+from app.audit import set_tenant_context
 from app.db import SessionLocal
 from app.models import AuditEvent, InviteCode, User
 from tests.conftest import create_user, login, new_client
@@ -52,6 +53,7 @@ def test_admin_creates_invite_and_new_user_registers_and_is_logged_in():
     assert "code" not in listed[0]
     with SessionLocal() as db:
         user_id = db.scalar(select(User.id).where(User.username == "newbie"))
+        set_tenant_context(db, user_id)
         assert db.scalar(select(AuditEvent.event_type).where(AuditEvent.user_id == user_id)) == "registered"
 
 
