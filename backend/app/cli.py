@@ -7,16 +7,13 @@
 
 import argparse
 import getpass
-import re
 import sys
 
 from sqlalchemy import delete, select
 
 from app.db import SessionLocal
 from app.models import User, UserSession
-from app.security import MIN_PASSWORD_LENGTH, hash_password
-
-USERNAME_RE = re.compile(r"^[a-z0-9_]{3,32}$")
+from app.security import MIN_PASSWORD_LENGTH, USERNAME_RE, hash_password
 
 
 def _prompt_password() -> str:

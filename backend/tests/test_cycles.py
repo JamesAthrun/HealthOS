@@ -14,6 +14,7 @@ from app.advice_service import (
     derive_cycle_observations,
     strip_cycle_mentions,
 )
+from app.audit import set_tenant_context
 from app.cycle import PeriodSpan, summarize_cycles
 from app.dashboard import DailySummary
 from app.db import SessionLocal
@@ -240,6 +241,7 @@ def test_summary_adjustments_follow_phase_and_switch():
 def _advice_context(username: str):
     with SessionLocal() as db:
         user = db.scalar(select(User).where(User.username == username))
+        set_tenant_context(db, user.id)
         return build_advice_context(db, user, kind="daily", for_date=today())
 
 

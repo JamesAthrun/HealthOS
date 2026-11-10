@@ -82,6 +82,24 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
 
 
+class InviteCode(Base):
+    """注册邀请码：一码一人，过期或作废后不可用。只保存哈希，明文只在生成时显示一次。"""
+
+    __tablename__ = "invite_codes"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    code_hash: Mapped[bytes] = mapped_column(LargeBinary(32), unique=True)
+    # 明文末 4 位，方便管理员在列表里认出是哪一个
+    code_hint: Mapped[str] = mapped_column(String(4))
+    note: Mapped[str | None] = mapped_column(String(50))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    used_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
 class Profile(Base):
     __tablename__ = "profiles"
 

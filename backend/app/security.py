@@ -1,4 +1,5 @@
 import hashlib
+import re
 import secrets
 import threading
 import time
@@ -13,6 +14,25 @@ _hasher = PasswordHasher()
 _DUMMY_HASH = _hasher.hash(secrets.token_urlsafe(16))
 
 MIN_PASSWORD_LENGTH = 8
+USERNAME_RE = re.compile(r"^[a-z0-9_]{3,32}$")
+
+# 邀请码：8 位，去掉易混淆的 0/O/1/I，显示为 XXXX-XXXX
+_INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+_INVITE_LENGTH = 8
+
+
+def new_invite_code() -> str:
+    raw = "".join(secrets.choice(_INVITE_ALPHABET) for _ in range(_INVITE_LENGTH))
+    return f"{raw[:4]}-{raw[4:]}"
+
+
+def normalize_invite_code(code: str) -> str:
+    """忽略大小写、空格和连字符，方便手机输入。"""
+    return re.sub(r"[^A-Z0-9]", "", code.upper())
+
+
+def hash_invite_code(code: str) -> bytes:
+    return hashlib.sha256(normalize_invite_code(code).encode()).digest()
 
 
 def hash_password(password: str) -> str:

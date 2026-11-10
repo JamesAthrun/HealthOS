@@ -14,7 +14,7 @@ export function MeProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
-  const onLogin = pathname.startsWith("/login");
+  const onLogin = pathname.startsWith("/login") || pathname.startsWith("/register");
 
   useEffect(() => {
     if (onLogin || me) return;

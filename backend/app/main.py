@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
-from app import advice, auth, cycle, dashboard, food_prefs, photos, profile, records, weights
+from app import advice, auth, cycle, dashboard, food_prefs, invites, photos, profile, records, weights
 from app.config import get_settings
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -41,6 +41,7 @@ app.include_router(advice.router)
 app.include_router(weights.router)
 app.include_router(food_prefs.router)
 app.include_router(cycle.router)
+app.include_router(invites.router)
 
 
 @app.get("/api/health")

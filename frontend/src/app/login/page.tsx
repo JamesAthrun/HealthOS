@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
@@ -53,6 +54,9 @@ export default function LoginPage() {
       <button type="submit" disabled={submitting}>
         {submitting ? "登录中…" : "登录"}
       </button>
+      <p className="muted" style={{ textAlign: "center" }}>
+        有邀请码？<Link href="/register/">注册新账号</Link>
+      </p>
     </form>
   );
 }
