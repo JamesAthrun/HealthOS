@@ -111,6 +111,7 @@ export function MealCapture({ day, onDone }: Omit<FormProps<Meal>, "initial">) {
       setPhotos((current) => current.map((p, i) => ({ ...p, id: ids[i] ?? p.id })));
       const analysis = await api<{ result: Recognition | null }>("/meal-recognitions", {
         method: "POST",
+        timeoutMs: 120_000,
         body: { photo_ids: ids, note: note.trim() || null, hint: withHint ?? null },
       });
       if (!analysis.result) throw new Error("识别结果为空");
@@ -121,7 +122,7 @@ export function MealCapture({ day, onDone }: Omit<FormProps<Meal>, "initial">) {
 
   async function analyzeText() {
     await run(async () => {
-      showDraft(toDraft(await api<Recognition>("/meal-text/analyze", { method: "POST", body: { text: text.trim() } })));
+      showDraft(toDraft(await api<Recognition>("/meal-text/analyze", { method: "POST", timeoutMs: 90_000, body: { text: text.trim() } })));
     }, "识别失败，可稍后重试或直接填写");
   }
 
