@@ -332,7 +332,7 @@ Sprint 1 期间顺手用几张照片调用一次 DeepSeek 识别接口，提前�
 - `cycle_tracking_enabled`（默认 false）：**只有档案性别为“女”时才能开启**（接口校验，否则 422）；「我的」里的入口也只对女性显示，在 `/cycle` 页面开启/关闭。之后把性别改掉，接口按未开启处理，数据保留。
 - 关闭开关不删除历史记录，只是隐藏入口、接口返回 404；要删除数据，在 `/cycle` 页面单独操作“删除全部周期记录”。
 - `cycle_adjust_targets`（默认 true）：按周期调整饮食参考——经前（`luteal`）每日热量参考 +150 kcal（在自己设定的目标或自动参考值上叠加），经期显示补铁提示。由 `/api/cycles/summary` 的 `kcal_bonus` / `tips` 给出。
-- `cycle_share_with_ai`（默认 false）：是否允许生成建议时参考周期信息（Sprint 9 前不在界面显示）。
+- `cycle_share_with_ai`（默认 false）：是否允许生成建议时参考周期信息，在 `/cycle` 页面设置里开关。
 
 ### 10.3 数据与校验
 

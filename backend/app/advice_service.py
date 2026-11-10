@@ -14,14 +14,15 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
+from app.cycle import advice_cycle_context
 from app.dashboard import DailySummary, _daily_summary, _user_timezone
 from app.models import Advice, Profile, User, UserNote
 from app.food_prefs import normalize_food_name, preference_context
 from app.meal_ai import BUSY_STATUSES, _strip_code_fence, busy_backoff
 from app.weights import weight_stats
 
-PROMPT_VERSION = "advice-v3"
-PROMPT_PATH = Path(__file__).with_name("prompts") / "advice_v3.txt"
+PROMPT_VERSION = "advice-v4"
+PROMPT_PATH = Path(__file__).with_name("prompts") / "advice_v4.txt"
 logger = logging.getLogger(__name__)
 
 
@@ -29,7 +30,7 @@ class Observation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(min_length=1, max_length=64)
-    kind: Literal["diet", "exercise", "sleep", "records", "weight"]
+    kind: Literal["diet", "exercise", "sleep", "records", "weight", "cycle"]
     message: str = Field(min_length=1, max_length=300)
     severity: Literal["info", "attention"]
 
@@ -95,6 +96,9 @@ UNSAFE_TERMS = {
     "补充剂",
     "保健品",
     "减肥药",
+    "止痛药",
+    "止痛片",
+    "布洛芬",
     "注射",
     "剂量",
     "断食",
@@ -111,6 +115,8 @@ UNSAFE_TERMS = {
     "supplement",
     "dosage",
     "fasting",
+    "painkiller",
+    "ibuprofen",
 }
 
 # 否定、免责声明或转介就医的语境中出现敏感词是安全的，例如“不建议断食”“请咨询医生诊断”。
@@ -268,6 +274,49 @@ def derive_weight_observations(
     return observations
 
 
+def derive_cycle_observations(
+    cycle: dict[str, object] | None,
+    completed_days: list[DailySummary],
+    target_kcal: int | None,
+) -> list[Observation]:
+    if cycle is None:
+        return []
+    observations: list[Observation] = []
+    phase = cycle.get("phase")
+    cycle_day = cycle.get("cycle_day")
+    symptoms = set(cycle.get("latest_period_symptoms") or [])  # type: ignore[arg-type]
+    if (
+        phase == "menstrual"
+        and isinstance(cycle_day, int)
+        and cycle_day <= 3
+        and symptoms & {"cramps", "fatigue"}
+    ):
+        observations.append(
+            Observation(
+                id="cycle-early-period-discomfort",
+                kind="cycle",
+                message=f"目标日是经期第 {cycle_day} 天，本次经期记录了痛经或疲劳。",
+                severity="attention",
+            )
+        )
+    last_three = completed_days[-3:]
+    if (
+        phase == "luteal"
+        and target_kcal
+        and len(last_three) == 3
+        and all(day.meal_count > 0 and day.kcal > target_kcal for day in last_three)
+    ):
+        observations.append(
+            Observation(
+                id="cycle-luteal-appetite",
+                kind="cycle",
+                message="处于经前阶段，最近 3 天摄入都高于目标；经前食欲增加很常见。",
+                severity="info",
+            )
+        )
+    return observations
+
+
 def build_advice_context(
     db: Session, user: User, *, kind: str, for_date: date
 ) -> tuple[dict[str, object], list[Observation]]:
@@ -344,6 +393,9 @@ def build_advice_context(
     observations = derive_observations(days, target_kcal, current_date=end_date)
     weight = weight_stats(db, user, end_date)
     observations += derive_weight_observations(weight.change_7d_kg, weight.change_30d_kg)
+    # 周期层只在用户同意分享时出现；未同意时上下文里没有任何周期字段
+    cycle = advice_cycle_context(db, user.id, max(for_date, end_date))
+    observations += derive_cycle_observations(cycle, completed_days, target_kcal)
     recorded_kcal = [day.kcal for day in completed_days if day.meal_count > 0]
     recorded_sleep = [day.sleep_minutes for day in completed_days if day.sleep_minutes > 0]
     age_band = None
@@ -394,6 +446,8 @@ def build_advice_context(
         "observations": [item.model_dump() for item in observations],
         "notice": "健康习惯参考，不是医疗建议",
     }
+    if cycle is not None:
+        context["cycle"] = cycle
     return context, observations
 
 
@@ -430,6 +484,26 @@ def _validate_plan_timing(content: AdviceContent, context: dict[str, object]) ->
     for action in content.actions:
         if any(term in action.action.lower() for term in forbidden):
             raise AdviceProviderError("AI_INVALID_PLAN_DATE")
+
+
+_CYCLE_WORDS = ("生理期", "生理周期", "经期", "月经", "经前", "黄体期", "卵泡期", "排卵", "痛经")
+
+
+def strip_cycle_mentions(content: AdviceContent, context: dict[str, object]) -> AdviceContent:
+    """没有分享周期时不得提及：只在 limitations 里的直接删掉，写进正文则重新生成。"""
+    if "cycle" in context:
+        return content
+    body = " ".join(
+        [content.summary]
+        + [f"{item.action} {item.rationale}" for item in content.actions]
+        + [group.reason for group in content.meal_plan]
+    )
+    if any(word in body for word in _CYCLE_WORDS):
+        raise AdviceProviderError("AI_UNSHARED_CYCLE")
+    limitations = [
+        item for item in content.limitations if not any(word in item for word in _CYCLE_WORDS)
+    ]
+    return content.model_copy(update={"limitations": limitations})
 
 
 _ALLERGY_SPLIT_RE = re.compile(r"[，,、;；/\s]+|和|及|与|或")
@@ -515,6 +589,7 @@ def generate_advice(context: dict[str, object], settings: Settings) -> ProviderR
             allowed_refs = {item["id"] for item in context.get("observations", [])}  # type: ignore[index]
             _validate_safety(content, allowed_refs)
             _validate_plan_timing(content, context)
+            content = strip_cycle_mentions(content, context)
             content = filter_meal_plan(content, context)
             usage = body.get("usage", {})
             return ProviderResult(

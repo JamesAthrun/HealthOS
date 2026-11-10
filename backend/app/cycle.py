@@ -242,6 +242,32 @@ def _out(period: CyclePeriod) -> CycleOut:
     return CycleOut.model_validate(period, from_attributes=True)
 
 
+def advice_cycle_context(db: Session, user_id: uuid.UUID, ref_date: date) -> dict[str, object] | None:
+    """建议用的周期层：只有同意分享给 AI 时才返回；不含具体日期和历史。"""
+    profile = _profile(db, user_id)
+    if (
+        profile is None
+        or profile.sex != "female"
+        or not profile.cycle_tracking_enabled
+        or not profile.cycle_share_with_ai
+    ):
+        return None
+    periods = _spans(db, user_id)
+    if not periods or ref_date < periods[-1].start_date:
+        return None
+    summary = summarize_cycles([PeriodSpan(p.start_date, p.end_date) for p in periods], ref_date)
+    bonus = LUTEAL_KCAL_BONUS if profile.cycle_adjust_targets and summary.phase == "luteal" else 0
+    return {
+        "phase": summary.phase,
+        "cycle_day": summary.cycle_day,
+        "days_until_next_period": summary.days_until_next,
+        "late_days": summary.late_days,
+        "prediction_reliable": not summary.insufficient_data,
+        "latest_period_symptoms": list(periods[-1].symptoms or []),
+        "kcal_bonus": bonus,
+    }
+
+
 @router.get("/cycle-settings")
 def get_cycle_settings(user: CurrentUser, db: DbSession) -> CycleSettingsOut:
     profile = _profile(db, user.id)

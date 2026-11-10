@@ -308,6 +308,16 @@ export default function CyclePage() {
           按周期调整饮食参考
         </label>
         <p className="muted">经前每日热量参考 +150 kcal，经期显示补铁提示。</p>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={settings.share_with_ai}
+            disabled={busy}
+            onChange={(e) => void saveSettings({ share_with_ai: e.target.checked })}
+          />
+          生成建议时参考周期
+        </label>
+        <p className="muted">开启后，生成每日建议和周计划时会把当前阶段、周期第几天和最近一次记录的症状发给 AI（不发送具体日期和历史），建议会按经期、经前调整运动和饮食。默认关闭，随时可以关掉。</p>
         <button type="button" className="secondary" disabled={busy} onClick={() => void saveSettings({ tracking_enabled: false })}>
           关闭周期记录
         </button>

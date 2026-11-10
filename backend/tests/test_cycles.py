@@ -1,7 +1,23 @@
+import json
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
+
+import pytest
+
+from app.advice_service import (
+    AdviceAction,
+    AdviceContent,
+    AdviceProviderError,
+    build_advice_context,
+    derive_cycle_observations,
+    strip_cycle_mentions,
+)
 from app.cycle import PeriodSpan, summarize_cycles
+from app.dashboard import DailySummary
+from app.db import SessionLocal
+from app.models import User
 from tests.conftest import create_user, login, new_client
 
 
@@ -216,3 +232,68 @@ def test_summary_adjustments_follow_phase_and_switch():
     assert s["phase"] == "luteal" and s["kcal_bonus"] == 0 and s["tips"] == []
     events = [e["event_type"] for e in client.get("/api/me/audit-events").json()]
     assert "cycle_adjust_disabled" in events
+
+
+# ---------- 周期与建议 ----------
+
+
+def _advice_context(username: str):
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.username == username))
+        return build_advice_context(db, user, kind="daily", for_date=today())
+
+
+def test_advice_context_has_no_cycle_data_without_sharing():
+    client = authenticated("alice")
+    client.post("/api/cycles", json={"start_date": day(1), "symptoms": ["cramps"]})
+    context, observations = _advice_context("alice")
+    assert "cycle" not in context
+    assert all(item.kind != "cycle" for item in observations)
+    dumped = json.dumps(context, ensure_ascii=False)
+    for word in ("phase", "cramps", "menstrual", "latest_period"):
+        assert word not in dumped
+
+
+def test_advice_context_includes_cycle_layer_when_shared():
+    client = authenticated("alice")
+    client.post("/api/cycles", json={"start_date": day(1), "symptoms": ["cramps"]})
+    client.put("/api/cycle-settings", json={**SETTINGS_ON, "share_with_ai": True})
+    events = [e["event_type"] for e in client.get("/api/me/audit-events").json()]
+    assert "cycle_ai_share_enabled" in events
+
+    context, observations = _advice_context("alice")
+    cycle = context["cycle"]
+    assert cycle["phase"] == "menstrual" and cycle["cycle_day"] == 2
+    assert cycle["latest_period_symptoms"] == ["cramps"]
+    assert day(1) not in json.dumps(cycle)  # 不发送具体日期
+    assert "cycle-early-period-discomfort" in [item.id for item in observations]
+
+    # 关闭周期记录后同样不再发送
+    client.put("/api/cycle-settings", json={**SETTINGS_OFF, "share_with_ai": True})
+    assert "cycle" not in _advice_context("alice")[0]
+
+
+def test_cycle_mentions_are_removed_when_not_shared():
+    action = AdviceAction(category="general", action="早点睡。", rationale="资料有限。", confidence="low")
+    content = AdviceContent(summary="先从小事开始。", actions=[action], limitations=["无生理周期数据。", "睡眠记录少。"])
+    assert strip_cycle_mentions(content, {}).limitations == ["睡眠记录少。"]
+    assert strip_cycle_mentions(content, {"cycle": {}}).limitations == content.limitations
+    in_body = content.model_copy(update={"summary": "经期注意休息。"})
+    with pytest.raises(AdviceProviderError, match="AI_UNSHARED_CYCLE"):
+        strip_cycle_mentions(in_body, {})
+
+
+def test_luteal_appetite_observation():
+    days = [
+        DailySummary.model_validate({
+            "date": today() - timedelta(days=offset), "kcal": 2300, "protein_g": 0, "carbs_g": 0,
+            "fat_g": 0, "meal_count": 3, "exercise_minutes": 0, "steps": 0, "sleep_minutes": 0,
+            "sleep_quality": None,
+        })
+        for offset in (3, 2, 1)
+    ]
+    luteal = {"phase": "luteal", "cycle_day": 20, "latest_period_symptoms": []}
+    assert [o.id for o in derive_cycle_observations(luteal, days, 2000)] == ["cycle-luteal-appetite"]
+    assert derive_cycle_observations(luteal, days, 2500) == []
+    assert derive_cycle_observations({**luteal, "phase": "follicular"}, days, 2000) == []
+    assert derive_cycle_observations(None, days, 2000) == []
