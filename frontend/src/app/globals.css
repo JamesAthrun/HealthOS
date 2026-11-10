@@ -798,6 +798,23 @@ a.button.secondary {
   text-align: right;
 }
 
+.invite-code {
+  margin: 0;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  user-select: all;
+}
+
+.invite-link {
+  margin: 0;
+  font-size: 13px;
+  word-break: break-all;
+  user-select: all;
+}
+
 .day-nav {
   display: flex;
   align-items: center;

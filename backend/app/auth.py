@@ -4,15 +4,18 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 
 from app.audit import add_audit_event
 from app.config import get_settings
 from app.deps import SESSION_COOKIE, CurrentUser, DbSession, SessionToken
-from app.models import AuditEvent, User, UserSession
+from app.models import AuditEvent, InviteCode, User, UserSession
 from app.repositories import get_owned_audit_event, list_owned_audit_events
 from app.security import (
     MIN_PASSWORD_LENGTH,
+    USERNAME_RE,
+    hash_invite_code,
     hash_password,
     hash_session_token,
     login_limiter,
@@ -31,6 +34,33 @@ LOGIN_FAILED = "用户名或密码错误，或尝试次数过多，请稍后再�
 class LoginIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=1, max_length=128)
+
+
+INVITE_INVALID = "邀请码无效、已使用或已过期"
+
+
+class RegisterIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    invite_code: str = Field(min_length=1, max_length=32)
+    username: str = Field(min_length=3, max_length=32)
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=128)
+    display_name: str | None = Field(default=None, max_length=50)
+
+    @field_validator("username")
+    @classmethod
+    def valid_username(cls, value: str) -> str:
+        value = value.strip().lower()
+        if not USERNAME_RE.match(value):
+            raise ValueError("用户名只能包含小写字母、数字和下划线，长度 3–32")
+        return value
+
+    @field_validator("display_name")
+    @classmethod
+    def clean_display_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
 
 
 class UserOut(BaseModel):
@@ -112,6 +142,64 @@ def _set_session_cookie(response: Response, token: str) -> None:
     )
 
 
+def _start_session(db: DbSession, user_id: uuid.UUID, now: datetime) -> str:
+    token = new_session_token()
+    db.add(
+        UserSession(
+            id_hash=hash_session_token(token),
+            user_id=user_id,
+            expires_at=now + timedelta(days=get_settings().session_days),
+        )
+    )
+    return token
+
+
+@router.post("/auth/register", status_code=status.HTTP_201_CREATED)
+def register(body: RegisterIn, request: Request, response: Response, db: DbSession) -> UserOut:
+    client_ip = _client_ip(request) or "unknown"
+    if not login_limiter.allow(client_ip):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "请求过于频繁，请稍后再试")
+
+    now = datetime.now(timezone.utc)
+    # 原子地占用邀请码：并发注册时只有一个请求能成功
+    claimed = db.execute(
+        update(InviteCode)
+        .where(
+            InviteCode.code_hash == hash_invite_code(body.invite_code),
+            InviteCode.used_at.is_(None),
+            InviteCode.revoked_at.is_(None),
+            InviteCode.expires_at > now,
+        )
+        .values(used_at=now)
+        .returning(InviteCode.id)
+    ).scalar_one_or_none()
+    if claimed is None:
+        db.rollback()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, INVITE_INVALID)
+    if db.scalar(select(User.id).where(User.username == body.username)):
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "用户名已被使用，换一个吧")
+
+    user = User(
+        username=body.username,
+        display_name=body.display_name or body.username,
+        password_hash=hash_password(body.password),
+    )
+    db.add(user)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "用户名已被使用，换一个吧") from None
+    db.execute(update(InviteCode).where(InviteCode.id == claimed).values(used_by=user.id))
+    token = _start_session(db, user.id, now)
+    add_audit_event(db, user_id=user.id, event_type="registered", outcome="success", ip_address=client_ip)
+    db.commit()
+
+    _set_session_cookie(response, token)
+    return to_user_out(user)
+
+
 @router.post("/auth/login")
 def login(body: LoginIn, request: Request, response: Response, db: DbSession) -> UserOut:
     client_ip = _client_ip(request) or "unknown"
@@ -154,14 +242,7 @@ def login(body: LoginIn, request: Request, response: Response, db: DbSession) ->
     if needs_rehash(user.password_hash):
         user.password_hash = hash_password(body.password)
 
-    token = new_session_token()
-    db.add(
-        UserSession(
-            id_hash=hash_session_token(token),
-            user_id=user.id,
-            expires_at=now + timedelta(days=get_settings().session_days),
-        )
-    )
+    token = _start_session(db, user.id, now)
     add_audit_event(
         db,
         user_id=user.id,

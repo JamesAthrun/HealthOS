@@ -60,6 +60,15 @@ export default function MePage() {
         </ul>
       </section>
 
+      {me?.is_admin && (
+        <section className="card">
+          <h2>管理</h2>
+          <ul className="menu-list">
+            <li><Link href="/invites/">邀请码（邀请家人注册）</Link></li>
+          </ul>
+        </section>
+      )}
+
       {error && <p className="error" role="alert">{error}</p>}
       <button type="button" className="ghost-danger" disabled={busy} onClick={() => void logout()}>
         {busy ? "退出中…" : "退出登录"}
