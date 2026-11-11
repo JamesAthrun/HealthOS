@@ -3,11 +3,12 @@
 import { type FormEvent, useState } from "react";
 
 import { FoodItemsEditor } from "@/components/FoodItemsEditor";
+import { MealPhotoEditor } from "@/components/MealPhotoEditor";
 import { api } from "@/lib/api";
 import { useConfirm } from "@/lib/confirm";
 import { useFoodPreferences } from "@/lib/foodPrefs";
 import { localInputToIso, type Meal, toDateTimeLocal } from "@/lib/health";
-import { type DraftItem, emptyFoodItem, estimateItems, needsEstimate, NutritionCard, toFoodItem } from "@/lib/nutrition";
+import { type DraftItem, emptyFoodItem, estimateItems, needsEstimate, NutritionCard, type Recognition, recognitionItems, toFoodItem } from "@/lib/nutrition";
 import { useFoodHistory } from "@/lib/foodHistory";
 import { defaultDateTime, MEAL_LABELS } from "@/lib/records";
 import { useAction } from "@/lib/useAction";
@@ -41,6 +42,8 @@ export type MealDraft = {
   items: DraftItem[];
   mealType: Meal["meal_type"];
   photoId?: string;
+  /** 同一餐的全部照片，确认时一起关联到这一餐 */
+  photoIds?: string[];
   confidence?: number;
   warnings?: string[];
 };
@@ -65,6 +68,19 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
     }
     return draft?.items.length ? draft.items : [emptyFoodItem()];
   });
+  const [photoIds, setPhotoIds] = useState<string[]>(() => initial?.photo_ids ?? []);
+  const [recognized, setRecognized] = useState<Pick<Recognition, "overall_confidence" | "warnings"> | null>(null);
+
+  async function applyRecognition(result: Recognition) {
+    const ok = await confirm({
+      title: "用识别结果替换食物清单？",
+      message: `AI 识别出 ${result.food_items.length} 种食物：${result.food_items.map((i) => i.name).join("、")}。替换后点“保存”才会生效。`,
+      confirmText: "替换",
+    });
+    if (!ok) return;
+    setItems(recognitionItems(result));
+    setRecognized({ overall_confidence: result.overall_confidence, warnings: result.warnings });
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -85,6 +101,7 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
       meal_type: mealType,
       notes: notes || null,
       food_items: toSave.map(toFoodItem),
+      photo_ids: initial ? photoIds : draft?.photoIds ?? [],
     };
     const ok = await run(() => {
       if (initial) return api(`/meals/${initial.id}`, { method: "PATCH", body });
@@ -105,6 +122,17 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
       {prefs.error && <p className="error" role="alert">{prefs.error}</p>}
       {draft && <NutritionCard items={items} note="AI 粗略估算，仅供参考，可以直接修改下面的内容；改份量会按比例换算。" />}
       {initial && <NutritionCard items={items} note="这一餐的合计；每种食物的明细见下方。" />}
+      {initial && (
+        <MealPhotoEditor photoIds={photoIds} onChange={setPhotoIds} onRecognized={(r) => void applyRecognition(r)} disabled={busy} />
+      )}
+      {recognized && (
+        <div className="stack">
+          <p className="muted">已用 AI 重新识别（把握 {Math.round(recognized.overall_confidence * 100)}%），确认无误后点“保存”。</p>
+          {recognized.warnings.length > 0 && (
+            <ul className="warning-list">{recognized.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+          )}
+        </div>
+      )}
       {draft?.confidence !== undefined && <p className="muted">识别把握：{Math.round(draft.confidence * 100)}%</p>}
       {draft?.warnings && draft.warnings.length > 0 && (
         <ul className="warning-list">{draft.warnings.map((w) => <li key={w}>{w}</li>)}</ul>

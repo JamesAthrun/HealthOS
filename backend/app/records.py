@@ -4,14 +4,16 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from app.audit import add_audit_event, commit_with_tenant_context
 from app.deps import CurrentUser, DbSession
-from app.models import Exercise, FoodItem, Meal, Sleep
+from app.models import Exercise, FoodItem, Meal, MealPhoto, Sleep
 from app.repositories import get_owned_exercise, get_owned_meal, get_owned_sleep
 
 router = APIRouter(prefix="/api", tags=["records"])
+
+MAX_MEAL_PHOTOS = 4
 
 
 def _not_found() -> HTTPException:
@@ -60,6 +62,8 @@ class MealIn(BaseModel):
     meal_type: Literal["breakfast", "lunch", "dinner", "snack"]
     notes: str | None = Field(default=None, max_length=2000)
     food_items: list[FoodItemIn] = Field(min_length=1, max_length=50)
+    # 这一餐的照片（先用 POST /api/meal-photos 上传）
+    photo_ids: list[uuid.UUID] = Field(default_factory=list, max_length=MAX_MEAL_PHOTOS)
 
     _validate_eaten_at = field_validator("eaten_at")(_aware)
 
@@ -71,6 +75,8 @@ class MealPatch(BaseModel):
     meal_type: Literal["breakfast", "lunch", "dinner", "snack"] | None = None
     notes: str | None = Field(default=None, max_length=2000)
     food_items: list[FoodItemIn] | None = Field(default=None, min_length=1, max_length=50)
+    # 传入即替换这一餐的全部照片；空列表表示不要照片
+    photo_ids: list[uuid.UUID] | None = Field(default=None, max_length=MAX_MEAL_PHOTOS)
 
     @field_validator("eaten_at")
     @classmethod
@@ -85,6 +91,7 @@ class MealOut(BaseModel):
     status: str
     notes: str | None
     food_items: list[FoodItemOut]
+    photo_ids: list[uuid.UUID]
     created_at: datetime
     updated_at: datetime
 
@@ -97,6 +104,46 @@ def _replace_food_items(
     )
     for item in items:
         db.add(FoodItem(meal_id=meal.id, user_id=user_id, **item.model_dump()))
+
+
+def set_meal_photos(db: DbSession, meal: Meal, user_id: uuid.UUID, photo_ids: list[uuid.UUID]) -> None:
+    """把这一餐的照片换成 photo_ids（顺序即显示顺序，第一张为封面）。移除的照片只解除关联。"""
+    photo_ids = list(dict.fromkeys(photo_ids))
+    if photo_ids:
+        owned = set(
+            db.scalars(
+                select(MealPhoto.id).where(MealPhoto.user_id == user_id, MealPhoto.id.in_(photo_ids))
+            )
+        )
+        if len(owned) != len(photo_ids):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "照片不存在")
+    db.execute(
+        update(MealPhoto)
+        .where(MealPhoto.user_id == user_id, MealPhoto.meal_id == meal.id, MealPhoto.id.not_in(photo_ids))
+        .values(meal_id=None)
+    )
+    if photo_ids:
+        db.execute(
+            update(MealPhoto)
+            .where(MealPhoto.user_id == user_id, MealPhoto.id.in_(photo_ids))
+            .values(meal_id=meal.id)
+        )
+    meal.photo_id = photo_ids[0] if photo_ids else None
+
+
+def _meal_photo_ids(db: DbSession, meal: Meal) -> list[uuid.UUID]:
+    ids = list(
+        db.scalars(
+            select(MealPhoto.id)
+            .where(MealPhoto.meal_id == meal.id, MealPhoto.user_id == meal.user_id)
+            .order_by(MealPhoto.created_at, MealPhoto.id)
+        )
+    )
+    # 封面照片排最前
+    if meal.photo_id in ids:
+        ids.remove(meal.photo_id)
+        ids.insert(0, meal.photo_id)
+    return ids
 
 
 def _meal_out(db: DbSession, meal: Meal) -> MealOut:
@@ -114,6 +161,7 @@ def _meal_out(db: DbSession, meal: Meal) -> MealOut:
         status=meal.status,
         notes=meal.notes,
         food_items=[FoodItemOut.model_validate(item, from_attributes=True) for item in items],
+        photo_ids=_meal_photo_ids(db, meal),
         created_at=meal.created_at,
         updated_at=meal.updated_at,
     )
@@ -139,6 +187,8 @@ def create_meal(body: MealIn, user: CurrentUser, db: DbSession) -> MealOut:
     db.add(meal)
     db.flush()
     _replace_food_items(db, meal, user.id, body.food_items)
+    if body.photo_ids:
+        set_meal_photos(db, meal, user.id, body.photo_ids)
     commit_with_tenant_context(db, user.id)
     db.refresh(meal)
     return _meal_out(db, meal)
@@ -164,6 +214,8 @@ def patch_meal(
             setattr(meal, field, getattr(body, field))
     if body.food_items is not None:
         _replace_food_items(db, meal, user.id, body.food_items)
+    if body.photo_ids is not None:
+        set_meal_photos(db, meal, user.id, body.photo_ids)
     commit_with_tenant_context(db, user.id)
     db.refresh(meal)
     return _meal_out(db, meal)

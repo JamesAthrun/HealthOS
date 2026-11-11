@@ -278,6 +278,11 @@ class MealPhoto(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+    # 这张照片属于哪一餐；一餐最多 4 张。未确认或已移除的照片为空
+    meal_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("meals.id", ondelete="SET NULL", name="fk_meal_photos_meal_id", use_alter=True),
+        index=True,
+    )
     storage_key: Mapped[str] = mapped_column(String(255), unique=True)
     sha256: Mapped[str] = mapped_column(String(64))
     content_type: Mapped[str] = mapped_column(String(32))

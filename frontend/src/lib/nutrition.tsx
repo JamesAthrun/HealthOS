@@ -1,5 +1,28 @@
 import { api } from "@/lib/api";
-import type { FoodItemInput } from "@/lib/health";
+import type { FoodItemInput, Meal } from "@/lib/health";
+
+/** AI 识别结果（照片或文字） */
+export type Recognition = {
+  meal_type: Meal["meal_type"];
+  food_items: (FoodItemInput & { confidence: number })[];
+  overall_confidence: number;
+  warnings: string[];
+};
+
+export function recognitionItems(result: Recognition): DraftItem[] {
+  return result.food_items.map((item) => ({
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+    kcal: item.kcal,
+    protein_g: item.protein_g,
+    carbs_g: item.carbs_g,
+    fat_g: item.fat_g,
+    fiber_g: item.fiber_g ?? null,
+    sugar_g: item.sugar_g ?? null,
+    sodium_mg: item.sodium_mg ?? null,
+  }));
+}
 
 type NutrientKey = "protein_g" | "carbs_g" | "fat_g" | "fiber_g" | "sugar_g" | "sodium_mg";
 

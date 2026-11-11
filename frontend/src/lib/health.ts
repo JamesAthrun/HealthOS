@@ -21,6 +21,8 @@ export type Meal = {
   status: string;
   notes: string | null;
   food_items: FoodItem[];
+  /** 这一餐的照片，第一张为封面 */
+  photo_ids: string[];
   created_at: string;
   updated_at: string;
 };

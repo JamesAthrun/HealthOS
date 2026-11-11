@@ -890,6 +890,34 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
       - SessionCookie: []
+  /api/meal-recognitions/preview:
+    post:
+      tags:
+      - meal photos
+      summary: Preview Meal Photos
+      description: 编辑已有的一餐时用照片重新识别：只返回草稿，不保存；用户确认后走 PATCH /api/meals/{id}。
+      operationId: preview_meal_photos_api_meal_recognitions_preview_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhotoPreviewIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecognition'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
   /api/meal-text/analyze:
     post:
       tags:
@@ -3162,6 +3190,13 @@ components:
           maxItems: 50
           minItems: 1
           title: Food Items
+        photo_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          maxItems: 4
+          title: Photo Ids
       additionalProperties: false
       type: object
       required:
@@ -3195,6 +3230,12 @@ components:
             $ref: '#/components/schemas/FoodItemOut'
           type: array
           title: Food Items
+        photo_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Photo Ids
         created_at:
           type: string
           format: date-time
@@ -3211,6 +3252,7 @@ components:
       - status
       - notes
       - food_items
+      - photo_ids
       - created_at
       - updated_at
       title: MealOut
@@ -3247,6 +3289,15 @@ components:
             minItems: 1
           - type: 'null'
           title: Food Items
+        photo_ids:
+          anyOf:
+          - items:
+              type: string
+              format: uuid
+            type: array
+            maxItems: 4
+          - type: 'null'
+          title: Photo Ids
       additionalProperties: false
       type: object
       title: MealPatch
@@ -3554,6 +3605,27 @@ components:
       type: object
       title: NutritionTargets
       description: 每日营养目标；为空表示使用自动计算的参考值。
+    PhotoPreviewIn:
+      properties:
+        photo_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          maxItems: 4
+          minItems: 1
+          title: Photo Ids
+        note:
+          anyOf:
+          - type: string
+            maxLength: 300
+          - type: 'null'
+          title: Note
+      additionalProperties: false
+      type: object
+      required:
+      - photo_ids
+      title: PhotoPreviewIn
     ProfileIn:
       properties:
         birth_year:
