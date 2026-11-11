@@ -99,7 +99,7 @@ export function FoodItemsEditor({
           </label>
           {prefs && <FoodPrefButtons name={item.name} current={prefs.find(item.name)?.sentiment} onToggle={prefs.toggle} />}
           <div className="two-col">
-            <label>份量<NumberInput min="0.01" step="0.01" required value={item.quantity} onText={(text) => update(index, "quantity", text)} /></label>
+            <label>份量<NumberInput min="0.01" step="any" required value={item.quantity} onText={(text) => update(index, "quantity", text)} /></label>
             <label>单位<input required maxLength={20} value={item.unit} placeholder="碗、个、g" onChange={(e) => update(index, "unit", e.target.value)} /></label>
           </div>
           {needsEstimate(item) ? (
@@ -117,14 +117,14 @@ export function FoodItemsEditor({
                 <div className="two-col">
                 <label>
                   热量（kcal）
-                  <NumberInput min="0" step="0.1" placeholder="0" value={item.kcal} onText={(text) => update(index, "kcal", text || "0")} />
+                  <NumberInput min="0" step="any" placeholder="0" value={item.kcal} onText={(text) => update(index, "kcal", text || "0")} />
                 </label>
                 {NUTRIENTS.map(({ key, label, unit }) => (
                   <label key={key}>
                     {label}（{unit}）
                     <NumberInput
                       min="0"
-                      step={unit === "mg" ? "1" : "0.1"}
+                      step="any"
                       value={item[key]}
                       placeholder={OPTIONAL_NUTRIENTS.has(key) ? "未知" : "0"}
                       onText={(text) => update(index, key, OPTIONAL_NUTRIENTS.has(key) ? text : text || "0")}
