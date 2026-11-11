@@ -2,11 +2,33 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app import advice, auth, cycle, dashboard, food_prefs, invites, photos, profile, records, weights
 from app.config import get_settings
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+OVERRIDABLE_METHODS = {"PUT", "PATCH", "DELETE"}
+
+
+class MethodOverrideMiddleware:
+    """部分手机网络会卡住明文 HTTP 的 PATCH/PUT 请求体，前端改用 POST + X-HTTP-Method-Override。
+
+    只允许 POST 改写为 PUT/PATCH/DELETE；改写前后都是会做来源检查的方法。
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["method"] == "POST":
+            for name, value in scope["headers"]:
+                if name == b"x-http-method-override":
+                    method = value.decode("latin-1").strip().upper()
+                    if method in OVERRIDABLE_METHODS:
+                        scope = {**scope, "method": method}
+                    break
+        await self.app(scope, receive, send)
 
 
 class OriginCheckMiddleware(BaseHTTPMiddleware):
@@ -32,6 +54,7 @@ app = FastAPI(
     openapi_url=None,
 )
 app.add_middleware(OriginCheckMiddleware)
+app.add_middleware(MethodOverrideMiddleware)
 app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(records.router)

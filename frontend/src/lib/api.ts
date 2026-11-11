@@ -21,14 +21,25 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+/**
+ * 有些手机网络会卡住明文 HTTP 的 PATCH/PUT 请求体（服务器收到请求头但等不到内容），
+ * 所以带内容的修改一律用 POST 发送，由后端按 X-HTTP-Method-Override 还原。
+ */
+const OVERRIDE_METHODS = new Set(["PATCH", "PUT"]);
+
 export async function api<T>(
   path: string,
   options: { method?: string; body?: unknown; timeoutMs?: number } = {},
 ): Promise<T> {
+  const method = options.method ?? "GET";
+  const override = OVERRIDE_METHODS.has(method);
+  const headers: Record<string, string> = {};
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  if (override) headers["X-HTTP-Method-Override"] = method;
   const res = await fetchWithTimeout(`/api${path}`, {
-    method: options.method ?? "GET",
+    method: override ? "POST" : method,
     credentials: "same-origin",
-    headers: options.body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   }, options.timeoutMs ?? 20_000);
   if (!res.ok) {
