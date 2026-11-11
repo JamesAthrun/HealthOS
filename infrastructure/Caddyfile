@@ -2,6 +2,11 @@
 # Sprint 5 上线时改为 https://<服务器IP> + tls internal（见 docs/DESIGN.md 第 7 节）
 :80 {
     encode gzip
+    # 访问日志（docker compose logs caddy）：排查请求有没有到达服务器
+    log {
+        output stdout
+        format console
+    }
 
     handle /api/* {
         reverse_proxy api:8000
