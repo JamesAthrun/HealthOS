@@ -5,16 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { type MealDraft, MealForm } from "@/components/forms/MealForm";
 import type { FormProps } from "@/components/forms/types";
 import { api, uploadApi } from "@/lib/api";
-import type { FoodItemInput, Meal } from "@/lib/health";
+import type { Meal } from "@/lib/health";
+import { type Recognition, recognitionItems } from "@/lib/nutrition";
 import { useAction } from "@/lib/useAction";
 
 type Consent = { granted: boolean };
-type Recognition = {
-  meal_type: Meal["meal_type"];
-  food_items: (FoodItemInput & { confidence: number })[];
-  overall_confidence: number;
-  warnings: string[];
-};
 type Mode = "choose" | "photo" | "text" | "voice" | "manual";
 
 const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
@@ -36,24 +31,14 @@ function PhotoStrip({ photos, onRemove }: { photos: PickedPhoto[]; onRemove?: (i
   );
 }
 
-function toDraft(result: Recognition, photoId?: string): MealDraft {
+function toDraft(result: Recognition, photoIds?: string[]): MealDraft {
   return {
     mealType: result.meal_type,
-    photoId,
+    photoId: photoIds?.[0],
+    photoIds,
     confidence: result.overall_confidence,
     warnings: result.warnings,
-    items: result.food_items.map((item) => ({
-      name: item.name,
-      quantity: item.quantity,
-      unit: item.unit,
-      kcal: item.kcal,
-      protein_g: item.protein_g,
-      carbs_g: item.carbs_g,
-      fat_g: item.fat_g,
-      fiber_g: item.fiber_g ?? null,
-      sugar_g: item.sugar_g ?? null,
-      sodium_mg: item.sodium_mg ?? null,
-    })),
+    items: recognitionItems(result),
   };
 }
 
@@ -115,7 +100,7 @@ export function MealCapture({ day, onDone }: Omit<FormProps<Meal>, "initial">) {
         body: { photo_ids: ids, note: note.trim() || null, hint: withHint ?? null },
       });
       if (!analysis.result) throw new Error("识别结果为空");
-      showDraft(toDraft(analysis.result, ids[0]));
+      showDraft(toDraft(analysis.result, ids));
       setHint("");
     }, "识别失败，可稍后重试或直接填写");
   }

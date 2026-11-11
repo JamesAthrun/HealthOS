@@ -31,7 +31,7 @@ from app.meal_ai import (
     recognize_meal_text,
 )
 from app.models import Meal, MealAnalysis, MealPhoto
-from app.records import MealIn, MealOut, _meal_out, _replace_food_items
+from app.records import MealIn, MealOut, _meal_out, _replace_food_items, set_meal_photos
 
 router = APIRouter(prefix="/api", tags=["meal photos"])
 logger = logging.getLogger(__name__)
@@ -396,6 +396,39 @@ def analyze_meal_photos(body: MultiPhotoAnalyzeIn, user: CurrentUser, db: DbSess
     return _analysis_out(analysis)
 
 
+class PhotoPreviewIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    photo_ids: list[uuid.UUID] = Field(min_length=1, max_length=MAX_MEAL_PHOTOS)
+    note: str | None = Field(default=None, max_length=300)
+
+
+@router.post("/meal-recognitions/preview")
+def preview_meal_photos(body: PhotoPreviewIn, user: CurrentUser, db: DbSession) -> MealRecognition:
+    """编辑已有的一餐时用照片重新识别：只返回草稿，不保存；用户确认后走 PATCH /api/meals/{id}。"""
+    if user.ai_consent_at is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "请先同意将饮食照片或文字发送给 AI 服务商处理")
+    photos = []
+    for photo_id in dict.fromkeys(body.photo_ids):
+        photo = _owned_photo(db, user, photo_id)
+        if photo is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "照片不存在")
+        photos.append(photo)
+    settings = get_settings()
+    if not settings.deepseek_api_key:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 尚未配置，可继续手工记录")
+    note = body.note.strip() if body.note and body.note.strip() else None
+    try:
+        images = [_photo_path(photo.storage_key).read_bytes() for photo in photos]
+        return recognize_meal_photos(images, settings, note=note)
+    except FileNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "照片文件不存在") from exc
+    except AIProviderError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "AI 识别暂时失败，可稍后重试或手工修改"
+        ) from exc
+
+
 @router.post("/meal-text/analyze")
 def analyze_meal_text(body: MealTextIn, user: CurrentUser) -> MealRecognition:
     """文字/语音描述 → 饮食草稿。不保存任何内容；用户确认后走 POST /api/meals。"""
@@ -479,6 +512,7 @@ def confirm_meal_analysis(
     db.add(meal)
     db.flush()
     _replace_food_items(db, meal, user.id, body.food_items)
+    set_meal_photos(db, meal, user.id, [photo_id, *body.photo_ids])
     analysis.status = "confirmed"
     analysis.confirmed_meal_id = meal.id
     add_audit_event(

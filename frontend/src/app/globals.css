@@ -891,6 +891,12 @@ a.button.secondary {
   background-size: cover;
 }
 
+.photo-thumb > a {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
 .photo-thumb button {
   position: absolute;
   top: 4px;
