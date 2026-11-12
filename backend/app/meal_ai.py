@@ -259,6 +259,20 @@ def _request_recognition(messages: list[dict[str, object]], settings: Settings, 
     return _request_json(messages, settings, max_tokens, MealRecognition)
 
 
+def _post_with_deadline(url: str, headers: dict[str, str], payload: dict[str, object], settings: Settings) -> dict:
+    """按块读取响应，超过单次总时长就中止（模型偶尔会一直输出到 max_tokens，耗时两分钟以上）。"""
+    deadline = time.monotonic() + settings.deepseek_attempt_seconds
+    with httpx.Client(timeout=settings.deepseek_timeout_seconds) as client:
+        with client.stream("POST", url, headers=headers, json=payload) as response:
+            body = bytearray()
+            for chunk in response.iter_bytes():
+                body += chunk
+                if time.monotonic() > deadline:
+                    raise httpx.ReadTimeout("attempt deadline exceeded")
+            response.raise_for_status()
+    return json.loads(bytes(body))
+
+
 def _request_json(
     messages: list[dict[str, object]], settings: Settings, max_tokens: int, model: type[ModelT]
 ) -> ModelT:
@@ -274,20 +288,26 @@ def _request_json(
     busy_retries = 0
     while attempt < 2:
         finish_reason = None
+        usage: dict = {}
+        started = time.monotonic()
         try:
-            with httpx.Client(timeout=settings.deepseek_timeout_seconds) as client:
-                response = client.post(
-                    f"{settings.deepseek_base_url.rstrip('/')}/chat/completions",
-                    headers={"Authorization": f"Bearer {settings.deepseek_api_key}"},
-                    json=payload,
-                )
-                response.raise_for_status()
-            choice = response.json()["choices"][0]
+            data = _post_with_deadline(
+                f"{settings.deepseek_base_url.rstrip('/')}/chat/completions",
+                {"Authorization": f"Bearer {settings.deepseek_api_key}"},
+                payload,
+                settings,
+            )
+            usage = data.get("usage") or {}
+            choice = data["choices"][0]
             finish_reason = choice.get("finish_reason")
-            return model.model_validate(json.loads(_strip_code_fence(choice["message"]["content"])))
+            result = model.model_validate(json.loads(_strip_code_fence(choice["message"]["content"])))
+            elapsed = time.monotonic() - started
+            if elapsed > 20:
+                logger.warning("meal AI slow: %.1fs %s", elapsed, _usage_summary(usage))
+            return result
         except httpx.TimeoutException:
             last_code = "AI_TIMEOUT"
-            logger.warning("meal AI attempt %d: timeout", attempt + 1)
+            logger.warning("meal AI attempt %d: timeout after %.1fs", attempt + 1, time.monotonic() - started)
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code
             last_code = f"AI_HTTP_{status_code}"
@@ -304,9 +324,19 @@ def _request_json(
             logger.warning("meal AI attempt %d: schema mismatch finish=%s %s", attempt + 1, finish_reason, problems[:10])
         except (KeyError, TypeError, json.JSONDecodeError) as exc:
             last_code = "AI_INVALID_RESPONSE"
-            logger.warning("meal AI attempt %d: unparsable finish=%s %s", attempt + 1, finish_reason, type(exc).__name__)
+            logger.warning(
+                "meal AI attempt %d: unparsable finish=%s %s %.1fs %s",
+                attempt + 1, finish_reason, type(exc).__name__, time.monotonic() - started, _usage_summary(usage),
+            )
         attempt += 1
     raise AIProviderError(last_code)
+
+
+def _usage_summary(usage: dict) -> str:
+    details = usage.get("completion_tokens_details") or {}
+    return "tokens: prompt=%s completion=%s reasoning=%s" % (
+        usage.get("prompt_tokens"), usage.get("completion_tokens"), details.get("reasoning_tokens"),
+    )
 
 
 def _strip_code_fence(content: str) -> str:

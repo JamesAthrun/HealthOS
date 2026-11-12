@@ -91,7 +91,7 @@ export async function estimateItems(items: DraftItem[]): Promise<DraftItem[]> {
   if (targets.length === 0) return items;
   const { items: results } = await api<{ items: Pick<FoodItemInput, "kcal" | NutrientKey>[] }>("/meal-text/estimate", {
     method: "POST",
-    timeoutMs: 90_000,
+    timeoutMs: 120_000,
     body: { items: targets.map(({ item }) => ({ name: item.name.trim(), quantity: item.quantity, unit: item.unit.trim() })) },
   });
   const next = [...items];

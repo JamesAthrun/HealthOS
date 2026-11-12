@@ -1,3 +1,4 @@
+import contextlib
 import io
 
 from PIL import Image
@@ -38,6 +39,9 @@ def test_ai_busy_503_backs_off_and_retries_keeping_json_mode(monkeypatch):
         def __exit__(self, *_args):
             return False
 
+        def stream(self, method, url, headers, json):
+            return contextlib.nullcontext(self.post(url, headers, json))
+
         def post(self, url, headers, json):
             sent.append(dict(json))
             request = httpx.Request("POST", url)
@@ -65,6 +69,53 @@ def test_ai_busy_503_backs_off_and_retries_keeping_json_mode(monkeypatch):
         assert exc.code == "AI_HTTP_503"
     assert waits == [1.0, 3.0]
     assert len(sent) == 4  # 1 次 + 2 次繁忙重试 + 1 次常规重试
+
+
+def test_ai_attempt_is_cut_off_at_deadline(monkeypatch):
+    import httpx
+
+    import app.meal_ai as meal_ai
+
+    calls = []
+
+    class SlowResponse:
+        status_code = 200
+
+        def iter_bytes(self):
+            # 模拟模型一直输出：每块之间时间推进 30 秒
+            for _ in range(100):
+                clock[0] += 30
+                yield b" "
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def stream(self, method, url, headers, json):
+            calls.append(json)
+            return contextlib.nullcontext(SlowResponse())
+
+    clock = [0.0]
+    monkeypatch.setattr(meal_ai.httpx, "Client", FakeClient)
+    monkeypatch.setattr(meal_ai.time, "monotonic", lambda: clock[0])
+    settings = get_settings().model_copy(update={"deepseek_api_key": "test-key", "deepseek_attempt_seconds": 45})
+    try:
+        meal_ai.recognize_meal(b"jpeg", settings)
+        raise AssertionError("expected AIProviderError")
+    except meal_ai.AIProviderError as exc:
+        assert exc.code == "AI_TIMEOUT"
+    assert len(calls) == 2  # 超时后重试一次就放弃
+    assert clock[0] <= 2 * 60  # 每次最多多读一块，不会一直等下去
+    assert issubclass(httpx.ReadTimeout, httpx.TimeoutException)
 
 
 def test_ai_meal_type_variants_are_normalized():
@@ -117,6 +168,9 @@ def test_text_recognition_sends_text_only_and_returns_draft(monkeypatch):
 
         def __exit__(self, *_args):
             return False
+
+        def stream(self, method, url, headers, json):
+            return contextlib.nullcontext(self.post(url, headers, json))
 
         def post(self, url, headers, json):
             sent.append(json)
@@ -177,6 +231,9 @@ def _fake_deepseek(monkeypatch, content: dict):
 
         def __exit__(self, *_args):
             return False
+
+        def stream(self, method, url, headers, json):
+            return contextlib.nullcontext(self.post(url, headers, json))
 
         def post(self, url, headers, json):
             sent.append(json)

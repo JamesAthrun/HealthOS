@@ -107,7 +107,7 @@ export function MealCapture({ day, onDone }: Omit<FormProps<Meal>, "initial">) {
 
   async function analyzeText() {
     await run(async () => {
-      showDraft(toDraft(await api<Recognition>("/meal-text/analyze", { method: "POST", timeoutMs: 90_000, body: { text: text.trim() } })));
+      showDraft(toDraft(await api<Recognition>("/meal-text/analyze", { method: "POST", timeoutMs: 120_000, body: { text: text.trim() } })));
     }, "识别失败，可稍后重试或直接填写");
   }
 
