@@ -1,3 +1,5 @@
+import { api } from "./api";
+
 export type CycleFlow = "light" | "medium" | "heavy";
 export type CycleSymptom = "cramps" | "bloating" | "headache" | "mood" | "breast_tenderness" | "fatigue" | "acne";
 export type CyclePhase = "menstrual" | "follicular" | "ovulation" | "luteal" | "late";
@@ -32,6 +34,17 @@ export type CycleSummary = {
 
 export type CycleSettings = { tracking_enabled: boolean; share_with_ai: boolean; adjust_targets: boolean };
 export type CycleSettingsOut = CycleSettings & { available: boolean };
+
+/** 只在开启了周期记录时读取摘要；未开启时返回 null（不再发注定 404 的请求） */
+export async function fetchCycleSummary(): Promise<CycleSummary | null> {
+  try {
+    const settings = await api<CycleSettingsOut>("/cycle-settings");
+    if (!settings.available || !settings.tracking_enabled) return null;
+    return await api<CycleSummary>("/cycles/summary");
+  } catch {
+    return null;
+  }
+}
 
 // 不展示“易孕期”；排卵日附近只叫“周期中段”
 export const PHASE_LABELS: Record<CyclePhase, string> = {

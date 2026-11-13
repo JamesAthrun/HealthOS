@@ -44,18 +44,26 @@ export function useRecordSheet(reload: () => unknown) {
 export function EntryList({ entries, onSelect, icons = true }: { entries: Entry[]; onSelect: (entry: Entry) => void; icons?: boolean }) {
   return (
     <ul className="entry-list">
-      {entries.map((entry) => (
-        <li key={`${entry.kind}-${entry.id}`}>
-          <button type="button" className="entry" onClick={() => onSelect(entry)}>
-            {icons && <span className="entry-icon" aria-hidden="true">{KIND_META[entry.kind].icon}</span>}
-            <span className="entry-main">
-              <strong>{entry.title}</strong>
-              {entry.detail && <small>{entry.detail}</small>}
-            </span>
-            <span className="entry-side">{entry.side}</span>
-          </button>
-        </li>
-      ))}
+      {entries.map((entry) => {
+        // 有照片的饮食显示第一张的小图
+        const photo = entry.kind === "meal" ? entry.row.photo_ids?.[0] : undefined;
+        return (
+          <li key={`${entry.kind}-${entry.id}`}>
+            <button type="button" className="entry" onClick={() => onSelect(entry)}>
+              {photo ? (
+                <span className="entry-thumb" aria-hidden="true" style={{ backgroundImage: `url(/api/meal-photos/${photo}?size=thumb)` }} />
+              ) : (
+                icons && <span className="entry-icon" aria-hidden="true">{KIND_META[entry.kind].icon}</span>
+              )}
+              <span className="entry-main">
+                <strong>{entry.title}</strong>
+                {entry.detail && <small>{entry.detail}</small>}
+              </span>
+              <span className="entry-side">{entry.side}</span>
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

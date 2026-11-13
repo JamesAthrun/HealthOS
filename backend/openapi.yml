@@ -816,6 +816,16 @@ paths:
           type: string
           format: uuid
           title: Photo Id
+      - name: size
+        in: query
+        required: false
+        schema:
+          enum:
+          - full
+          - thumb
+          type: string
+          default: full
+          title: Size
       responses:
         '200':
           description: Successful Response
@@ -1865,6 +1875,86 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/admin/users:
+    get:
+      tags:
+      - admin
+      summary: List Users
+      operationId: list_users_api_admin_users_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/AdminUserOut'
+                type: array
+                title: Response List Users Api Admin Users Get
+      security:
+      - SessionCookie: []
+  /api/admin/users/{user_id}/reset-password:
+    post:
+      tags:
+      - admin
+      summary: Reset Password
+      description: 生成临时密码（只显示这一次），解除锁定并让该用户所有设备重新登录。
+      operationId: reset_password_api_admin_users__user_id__reset_password_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetPasswordOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/admin/users/{user_id}/delete:
+    post:
+      tags:
+      - admin
+      summary: Delete User
+      description: 删除账号及其全部数据（记录、照片、建议等）。不能删除自己。
+      operationId: delete_user_api_admin_users__user_id__delete_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteUserIn'
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/health:
     get:
       summary: Health
@@ -1905,6 +1995,44 @@ components:
       - timezone
       - locale
       title: AccountSettingsIn
+    AdminUserOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        username:
+          type: string
+          title: Username
+        display_name:
+          type: string
+          title: Display Name
+        is_admin:
+          type: boolean
+          title: Is Admin
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        last_login_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Login At
+        locked:
+          type: boolean
+          title: Locked
+      type: object
+      required:
+      - id
+      - username
+      - display_name
+      - is_admin
+      - created_at
+      - last_login_at
+      - locked
+      title: AdminUserOut
     AdviceAction:
       properties:
         category:
@@ -2455,6 +2583,18 @@ components:
       - sleep_minutes
       - sleep_quality
       title: DailySummary
+    DeleteUserIn:
+      properties:
+        confirm_username:
+          type: string
+          maxLength: 32
+          minLength: 1
+          title: Confirm Username
+      additionalProperties: false
+      type: object
+      required:
+      - confirm_username
+      title: DeleteUserIn
     EstimateIn:
       properties:
         items:
@@ -3880,6 +4020,15 @@ components:
       - username
       - password
       title: RegisterIn
+    ResetPasswordOut:
+      properties:
+        temporary_password:
+          type: string
+          title: Temporary Password
+      type: object
+      required:
+      - temporary_password
+      title: ResetPasswordOut
     SleepIn:
       properties:
         started_at:

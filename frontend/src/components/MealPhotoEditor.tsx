@@ -75,7 +75,7 @@ export function MealPhotoEditor({
         {photoIds.length > 0 && (
           <div className="photo-strip">
             {photoIds.map((id, index) => (
-              <div key={id} className="photo-thumb" style={{ backgroundImage: `url(/api/meal-photos/${id})` }}>
+              <div key={id} className="photo-thumb" style={{ backgroundImage: `url(/api/meal-photos/${id}?size=thumb)` }}>
                 <a href={`/api/meal-photos/${id}`} target="_blank" rel="noreferrer" aria-label={`查看第 ${index + 1} 张照片`} />
                 {!busy && (
                   <button

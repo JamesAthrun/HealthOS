@@ -8,7 +8,7 @@ import { Fab } from "@/components/Fab";
 import { RecordSheet } from "@/components/RecordSheet";
 import { TodayNutrition, useDailyTargets } from "@/components/TodayNutrition";
 import { api, ApiError } from "@/lib/api";
-import { cycleHeadline, type CycleSummary } from "@/lib/cycle";
+import { cycleHeadline, type CycleSummary, fetchCycleSummary } from "@/lib/cycle";
 import { dayIntake } from "@/lib/dailyNutrition";
 import { signedKg, type TodayDashboard, type TrendDashboard, type WeightSummary } from "@/lib/health";
 import { type AllRecords, dayKey, entriesForDay, fetchAllRecords, QUALITY_LABELS } from "@/lib/records";
@@ -27,8 +27,8 @@ async function fetchHome(): Promise<HomeData> {
     api<TodayDashboard>("/dashboard/today"),
     api<TrendDashboard>("/dashboard/trends?days=7"),
     api<WeightSummary>("/weights/summary").catch(() => null),
-    // 未开启周期记录时返回 404，不显示卡片
-    api<CycleSummary>("/cycles/summary").catch(() => null),
+    // 未开启周期记录时为 null，不显示卡片
+    fetchCycleSummary(),
     fetchAllRecords(),
   ]);
   return { today, trends, weight, cycle, records };

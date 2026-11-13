@@ -4,7 +4,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from app import advice, auth, cycle, dashboard, food_prefs, invites, photos, profile, records, weights
+from app import admin, advice, auth, cycle, dashboard, food_prefs, invites, photos, profile, records, weights
 from app.config import get_settings
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -65,6 +65,7 @@ app.include_router(weights.router)
 app.include_router(food_prefs.router)
 app.include_router(cycle.router)
 app.include_router(invites.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health")
