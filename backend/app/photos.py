@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, HTTPException, Request, status
 from fastapi.responses import FileResponse
@@ -255,18 +255,44 @@ async def upload_meal_photo(request: Request, user: CurrentUser, db: DbSession) 
 
 
 @router.get("/meal-photos/{photo_id}", response_class=FileResponse)
-def get_meal_photo(photo_id: uuid.UUID, user: CurrentUser, db: DbSession) -> FileResponse:
+def get_meal_photo(
+    photo_id: uuid.UUID, user: CurrentUser, db: DbSession, size: Literal["full", "thumb"] = "full"
+) -> FileResponse:
     photo = _owned_photo(db, user, photo_id)
     if photo is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "照片不存在")
     path = _photo_path(photo.storage_key)
     if not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "照片文件不存在")
+    cache = "private, no-store"
+    if size == "thumb":
+        path = _thumbnail(path)
+        # 同一个编号的照片不会变，缩略图允许在自己的浏览器里缓存一天，列表翻动更快
+        cache = "private, max-age=86400"
     return FileResponse(
         path,
         media_type=photo.content_type,
-        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": cache, "X-Content-Type-Options": "nosniff"},
     )
+
+
+THUMB_EDGE = 360
+
+
+def _thumbnail(original: Path) -> Path:
+    """列表和编辑页用的小图（长边 360），第一次请求时生成并存在原图旁边。"""
+    thumb = original.with_name(f"{original.stem}.thumb.jpg")
+    if thumb.is_file():
+        return thumb
+    with Image.open(original) as image:
+        image = image.convert("RGB")
+        image.thumbnail((THUMB_EDGE, THUMB_EDGE), Image.Resampling.LANCZOS)
+        output = io.BytesIO()
+        image.save(output, format="JPEG", quality=75, optimize=True)
+    temporary = thumb.with_name(f"{thumb.name}.{uuid.uuid4().hex}.tmp")
+    temporary.write_bytes(output.getvalue())
+    temporary.replace(thumb)
+    return thumb
 
 
 @router.post("/meal-photos/{photo_id}/analyze")

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
-import type { CycleSummary } from "@/lib/cycle";
+import { fetchCycleSummary } from "@/lib/cycle";
 import {
   dailyTargets,
   type DailyTargets,
@@ -21,13 +21,25 @@ export type TargetInputs = {
   weightKg: number | null;
 };
 
+type ProfileBasics = {
+  birth_year: number | null;
+  sex: string | null;
+  height_cm: number | null;
+  weight_kg: number | null;
+  activity_level: string | null;
+};
+
 /** 读取营养目标、热量参考和最新体重 */
 export async function fetchTargetInputs(): Promise<TargetInputs> {
-  const [overrides, profile, reference] = await Promise.all([
+  const [overrides, profile] = await Promise.all([
     api<TargetOverrides>("/nutrition-targets").catch(() => NO_OVERRIDES),
-    api<{ weight_kg: number | null }>("/profile").catch(() => null),
-    api<{ maintenance_kcal: number; weight_loss_kcal: number | null }>("/profile/kcal-reference").catch(() => null),
+    api<ProfileBasics>("/profile").catch(() => null),
   ]);
+  // 档案填全了才能算热量参考，否则不发请求
+  const complete = profile && profile.birth_year && profile.sex && profile.height_cm && profile.weight_kg && profile.activity_level;
+  const reference = complete
+    ? await api<{ maintenance_kcal: number; weight_loss_kcal: number | null }>("/profile/kcal-reference").catch(() => null)
+    : null;
   return {
     overrides,
     maintenanceKcal: reference?.maintenance_kcal ?? null,
@@ -44,8 +56,7 @@ export function useDailyTargets(version = 0): DailyTargets {
     let active = true;
     Promise.all([
       fetchTargetInputs(),
-      // 未开启周期记录时返回 404
-      api<CycleSummary>("/cycles/summary").catch(() => null),
+      fetchCycleSummary(),
     ]).then(([inputs, cycle]) => {
       if (active) setTargets(dailyTargets({ ...inputs, cycle }));
     });

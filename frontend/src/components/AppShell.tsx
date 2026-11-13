@@ -12,14 +12,14 @@ const TABS = [
   { href: "/", label: "今天", icon: "🏠", match: (p: string) => p === "/" },
   { href: "/log/", label: "记录", icon: "📋", match: (p: string) => /^\/(log|meals|exercises|sleeps|weights)(\/|$)/.test(p) },
   { href: "/advice/", label: "规划", icon: "💡", match: (p: string) => /^\/(advice|notes)(\/|$)/.test(p) },
-  { href: "/me/", label: "我的", icon: "👤", match: (p: string) => /^\/(me|profile|targets|settings|password|invites)(\/|$)/.test(p) },
+  { href: "/me/", label: "我的", icon: "👤", match: (p: string) => /^\/(me|profile|targets|settings|password|invites|users)(\/|$)/.test(p) },
 ];
 
 // 二级页面返回时的默认去处（直接打开链接、没有浏览历史时使用）
 const PARENTS: [RegExp, string][] = [
   [/^\/(meals|exercises|sleeps|weights)(\/|$)/, "/log/"],
   [/^\/notes(\/|$)/, "/advice/"],
-  [/^\/(profile|targets|settings|password|invites)(\/|$)/, "/me/"],
+  [/^\/(profile|targets|settings|password|invites|users)(\/|$)/, "/me/"],
 ];
 
 function normalize(pathname: string): string {

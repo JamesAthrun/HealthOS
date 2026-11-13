@@ -115,3 +115,27 @@ def test_deleting_meal_keeps_photo_files(monkeypatch):
     meal, ids = _confirmed_meal(client, monkeypatch)
     assert client.delete(f"/api/meals/{meal['id']}").status_code == 204
     assert client.get(f"/api/meal-photos/{ids[0]}").status_code == 200
+
+
+def test_thumbnail_is_small_cached_and_private():
+    import io
+
+    from PIL import Image
+
+    alice = authenticated("alice")
+    bob = authenticated("bob")
+    photo = upload(alice, image_bytes("navy")).json()["id"]
+
+    thumb = alice.get(f"/api/meal-photos/{photo}?size=thumb")
+    assert thumb.status_code == 200
+    assert thumb.headers["content-type"].startswith("image/jpeg")
+    assert thumb.headers["cache-control"] == "private, max-age=86400"
+    assert max(Image.open(io.BytesIO(thumb.content)).size) == 360
+    # 第二次直接用已生成的文件
+    assert alice.get(f"/api/meal-photos/{photo}?size=thumb").content == thumb.content
+    full = alice.get(f"/api/meal-photos/{photo}")
+    assert len(full.content) > len(thumb.content)
+    assert full.headers["cache-control"] == "private, no-store"
+
+    assert bob.get(f"/api/meal-photos/{photo}?size=thumb").status_code == 404
+    assert alice.get(f"/api/meal-photos/{photo}?size=huge").status_code == 422

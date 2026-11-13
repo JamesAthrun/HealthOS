@@ -788,6 +788,16 @@ a.button.secondary {
   text-align: center;
 }
 
+.entry-thumb {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background-color: #edf1ef;
+  background-position: center;
+  background-size: cover;
+}
+
 .entry-main {
   min-width: 0;
   flex: 1;
