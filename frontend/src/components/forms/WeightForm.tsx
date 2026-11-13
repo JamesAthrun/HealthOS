@@ -43,8 +43,17 @@ export function WeightForm({ initial, day, onDone }: FormProps<WeightLog>) {
   }
 
   async function remove() {
-    if (!initial || !(await confirm({ title: "删除这条体重记录？", message: "删除后无法恢复。", confirmText: "删除", danger: true }))) return;
-    if (await run(() => api(`/weights/${initial.id}`, { method: "DELETE" }), "删除失败")) onDone("已删除");
+    if (!initial || !(await confirm({ title: "删除这条体重记录？", message: "删除后几秒内可以点“撤销”恢复。", confirmText: "删除", danger: true }))) return;
+    const restore = {
+      measured_on: initial.measured_on,
+      weight_kg: initial.weight_kg,
+      waist_cm: initial.waist_cm ?? null,
+      body_fat_pct: initial.body_fat_pct ?? null,
+      notes: initial.notes ?? null,
+    };
+    if (await run(() => api(`/weights/${initial.id}`, { method: "DELETE" }), "删除失败")) {
+      onDone("已删除", undefined, () => api("/weights", { method: "POST", body: restore }));
+    }
   }
 
   return (

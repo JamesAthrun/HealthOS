@@ -112,8 +112,18 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
   }
 
   async function remove() {
-    if (!initial || !(await confirm({ title: "删除这条饮食记录？", message: "删除后无法恢复。", confirmText: "删除", danger: true }))) return;
-    if (await run(() => api(`/meals/${initial.id}`, { method: "DELETE" }), "删除失败")) onDone("已删除");
+    if (!initial || !(await confirm({ title: "删除这条饮食记录？", message: "删除后几秒内可以点“撤销”恢复。", confirmText: "删除", danger: true }))) return;
+    // 撤销就是按原内容（含照片）重新建一条
+    const restore = {
+      eaten_at: initial.eaten_at,
+      meal_type: initial.meal_type,
+      notes: initial.notes,
+      food_items: initial.food_items.map((food) => toFoodItem({ ...food, id: undefined } as DraftItem)),
+      photo_ids: initial.photo_ids,
+    };
+    if (await run(() => api(`/meals/${initial.id}`, { method: "DELETE" }), "删除失败")) {
+      onDone("已删除", undefined, () => api("/meals", { method: "POST", body: restore }));
+    }
   }
 
   return (

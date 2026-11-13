@@ -43,8 +43,11 @@ export function SleepForm({ initial, day, onDone }: FormProps<Sleep>) {
   }
 
   async function remove() {
-    if (!initial || !(await confirm({ title: "删除这条睡眠记录？", message: "删除后无法恢复。", confirmText: "删除", danger: true }))) return;
-    if (await run(() => api(`/sleeps/${initial.id}`, { method: "DELETE" }), "删除失败")) onDone("已删除");
+    if (!initial || !(await confirm({ title: "删除这条睡眠记录？", message: "删除后几秒内可以点“撤销”恢复。", confirmText: "删除", danger: true }))) return;
+    const restore = { started_at: initial.started_at, ended_at: initial.ended_at, quality: initial.quality, notes: initial.notes };
+    if (await run(() => api(`/sleeps/${initial.id}`, { method: "DELETE" }), "删除失败")) {
+      onDone("已删除", undefined, () => api("/sleeps", { method: "POST", body: restore }));
+    }
   }
 
   return (

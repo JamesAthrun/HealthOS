@@ -28,7 +28,7 @@ export function RecordSheet({
   day?: string;
   onChoose: (kind: RecordKind) => void;
   onClose: () => void;
-  onDone: (message: string, tone?: "success" | "warning") => void;
+  onDone: (message: string, tone?: "success" | "warning", undo?: () => Promise<unknown>) => void;
 }) {
   const label = target.kind ? KIND_META[target.kind].label : "";
   const title = !target.kind ? "记一笔" : target.initial ? `编辑${label}` : `记${label}`;

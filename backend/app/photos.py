@@ -13,6 +13,7 @@ from pillow_heif import register_heif_opener
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
+from app.ai_quota import ai_quota
 from app.audit import add_audit_event, commit_with_tenant_context, set_tenant_context
 from app.config import get_settings
 from app.dashboard import _user_timezone
@@ -297,6 +298,7 @@ def analyze_meal_photo(
     # 没有更正说明时复用已有结果，避免重复调用 AI
     if analysis and analysis.status == "succeeded" and not hint:
         return _analysis_out(analysis)
+    ai_quota.consume(user)
     if analysis is None:
         analysis = MealAnalysis(
             user_id=user.id,
@@ -367,6 +369,7 @@ def analyze_meal_photos(body: MultiPhotoAnalyzeIn, user: CurrentUser, db: DbSess
     )
     if analysis and analysis.status == "confirmed":
         raise HTTPException(status.HTTP_409_CONFLICT, "这张照片已确认记录，不能再重新识别")
+    ai_quota.consume(user)
     if analysis is None:
         analysis = MealAnalysis(user_id=user.id, photo_id=primary.id, provider="deepseek")
         db.add(analysis)
@@ -418,6 +421,7 @@ def preview_meal_photos(body: PhotoPreviewIn, user: CurrentUser, db: DbSession) 
     if not settings.deepseek_api_key:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 尚未配置，可继续手工记录")
     note = body.note.strip() if body.note and body.note.strip() else None
+    ai_quota.consume(user)
     try:
         images = [_photo_path(photo.storage_key).read_bytes() for photo in photos]
         return recognize_meal_photos(images, settings, note=note)
@@ -440,6 +444,7 @@ def analyze_meal_text(body: MealTextIn, user: CurrentUser) -> MealRecognition:
     settings = get_settings()
     if not settings.deepseek_api_key:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 尚未配置，可继续手工记录")
+    ai_quota.consume(user)
     now_local = datetime.now(_user_timezone(user)).strftime("%Y-%m-%d %H:%M")
     try:
         return recognize_meal_text(text, settings, now_local)
@@ -457,6 +462,7 @@ def estimate_meal_nutrition(body: EstimateIn, user: CurrentUser) -> EstimateOut:
     settings = get_settings()
     if not settings.deepseek_api_key:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 尚未配置，可以手动填写热量")
+    ai_quota.consume(user)
     try:
         return EstimateOut(items=estimate_nutrition(body.items, settings))
     except AIProviderError as exc:

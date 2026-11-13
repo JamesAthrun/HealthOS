@@ -39,8 +39,18 @@ export function ExerciseForm({ initial, day, onDone }: FormProps<Exercise>) {
   }
 
   async function remove() {
-    if (!initial || !(await confirm({ title: "删除这条运动记录？", message: "删除后无法恢复。", confirmText: "删除", danger: true }))) return;
-    if (await run(() => api(`/exercises/${initial.id}`, { method: "DELETE" }), "删除失败")) onDone("已删除");
+    if (!initial || !(await confirm({ title: "删除这条运动记录？", message: "删除后几秒内可以点“撤销”恢复。", confirmText: "删除", danger: true }))) return;
+    const restore = {
+      type: initial.type,
+      started_at: initial.started_at,
+      minutes: initial.minutes,
+      intensity: initial.intensity,
+      steps: initial.steps,
+      notes: initial.notes,
+    };
+    if (await run(() => api(`/exercises/${initial.id}`, { method: "DELETE" }), "删除失败")) {
+      onDone("已删除", undefined, () => api("/exercises", { method: "POST", body: restore }));
+    }
   }
 
   return (

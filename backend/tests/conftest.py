@@ -21,6 +21,7 @@ from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import make_url  # noqa: E402
 
+from app.ai_quota import ai_quota  # noqa: E402
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
@@ -71,6 +72,7 @@ def clean_tables() -> None:
         for table in reversed(Base.metadata.sorted_tables):
             conn.execute(table.delete())
     login_limiter.reset()
+    ai_quota.reset()
 
 
 def create_user(username: str, password: str = "password123", display_name: str | None = None) -> User:

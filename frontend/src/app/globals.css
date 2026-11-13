@@ -630,6 +630,18 @@ button.text-danger {
   background: var(--danger);
 }
 
+.toast-action {
+  display: inline;
+  width: auto;
+  margin: 0 0 0 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #9ae6b4;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translate(-50%, 8px); }
   to { opacity: 1; transform: translate(-50%, 0); }

@@ -24,9 +24,18 @@ export function useRecordSheet(reload: () => unknown) {
   const toast = useToast();
   const [target, setTarget] = useState<SheetTarget | null>(null);
   const close = useCallback(() => setTarget(null), []);
-  const done = useCallback((message: string, tone?: "success" | "warning") => {
+  const done = useCallback((message: string, tone?: "success" | "warning", undo?: () => Promise<unknown>) => {
     setTarget(null);
-    toast(message, tone);
+    const action = undo && {
+      label: "撤销",
+      onClick: () => {
+        undo()
+          .then(() => toast("已恢复"))
+          .catch(() => toast("恢复失败，请稍后重试", "error"))
+          .finally(() => void reload());
+      },
+    };
+    toast(message, tone, action);
     void reload();
   }, [reload, toast]);
   return { target, setTarget, close, done };

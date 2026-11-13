@@ -3,21 +3,22 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 
 type Tone = "success" | "warning" | "error";
-type Toast = { id: number; message: string; tone: Tone };
+export type ToastAction = { label: string; onClick: () => void };
+type Toast = { id: number; message: string; tone: Tone; action?: ToastAction };
 
-const ToastContext = createContext<(message: string, tone?: Tone) => void>(() => undefined);
+const ToastContext = createContext<(message: string, tone?: Tone, action?: ToastAction) => void>(() => undefined);
 
-/** 屏幕底部的轻提示：保存、删除后统一用它反馈 */
+/** 屏幕底部的轻提示：保存、删除后统一用它反馈；可带一个操作按钮（如“撤销”） */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<Toast | null>(null);
 
-  const show = useCallback((message: string, tone: Tone = "success") => {
-    setToast({ id: Date.now(), message, tone });
+  const show = useCallback((message: string, tone: Tone = "success", action?: ToastAction) => {
+    setToast({ id: Date.now(), message, tone, action });
   }, []);
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), toast.tone === "success" ? 2200 : 4500);
+    const timer = window.setTimeout(() => setToast(null), toast.action ? 6000 : toast.tone === "success" ? 2200 : 4500);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -27,6 +28,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {toast && (
         <div key={toast.id} className={`toast toast-${toast.tone}`} role="status" onClick={() => setToast(null)}>
           {toast.message}
+          {toast.action && (
+            <button
+              type="button"
+              className="toast-action"
+              onClick={(e) => { e.stopPropagation(); setToast(null); toast.action?.onClick(); }}
+            >
+              {toast.action.label}
+            </button>
+          )}
         </div>
       )}
     </ToastContext.Provider>

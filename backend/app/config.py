@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     deepseek_timeout_seconds: float = 60.0
     # 单次调用的总时长上限：服务商会持续发送保活数据，只靠读取超时无法及时中止失控的长输出
     deepseek_attempt_seconds: float = 45.0
+    # 每人每天调用 AI 识别/估算的次数上限（0 表示不限）；管理员不受限
+    ai_daily_limit: int = 50
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
