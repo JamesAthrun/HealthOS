@@ -26,14 +26,21 @@ $wb = Join-Path $env:LOCALAPPDATA "Programs\workbench\workbench.exe"
 if (-not (Test-Path $wb)) { throw "找不到 workbench：$wb" }
 Set-Location $repo
 
+function Invoke-Native([scriptblock]$block) {
+    # Windows PowerShell 5.1 在 Stop 模式下会把原生命令写到 stderr 的正常输出当成错误
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { return (& $block 2>&1 | ForEach-Object { "$_" }) -join "`n" } finally { $ErrorActionPreference = $previous }
+}
+
 function Invoke-Remote([string]$command) {
-    # workbench 会把部分正常输出写到 stderr，这里统一收集
-    $output = & $wb exec --instance-id $InstanceId --region $Region --command $command 2>&1 | Out-String
-    return $output
+    return Invoke-Native { & $wb exec --instance-id $InstanceId --region $Region --command $command }
 }
 
 function Send-File([string]$path) {
-    & $wb upload $path /tmp/ -i $InstanceId -r $Region -f 2>&1 | Select-Object -Last 1 | Write-Host
+    $out = Invoke-Native { & $wb upload $path /tmp/ -i $InstanceId -r $Region -f }
+    if ($out -notmatch "Upload complete") { throw "上传失败：$path`n$out" }
+    Write-Host "已上传 $(Split-Path -Leaf $path)"
 }
 
 # 1. 工作区检查
@@ -41,7 +48,7 @@ $dirty = git status --porcelain
 if ($dirty -and -not $AllowDirty) { throw "工作区有未提交的改动（git archive 只会打包已提交的内容）。先提交，或加 -AllowDirty。" }
 $head = (git rev-parse --short HEAD).Trim()
 $branch = (git rev-parse --abbrev-ref HEAD).Trim()
-git fetch origin 2>&1 | Out-Null
+Invoke-Native { git fetch origin } | Out-Null
 $behind = (git rev-list --count "HEAD..origin/$branch" 2>$null)
 if ($behind -and [int]$behind -gt 0) { throw "本地落后 origin/$branch $behind 个提交，先合并再部署。" }
 Write-Host "部署 $branch @ $head"
