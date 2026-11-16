@@ -156,7 +156,7 @@ def recognize_meal_text(text: str, settings: Settings, now_local: str) -> MealRe
         {"role": "system", "content": TEXT_SYSTEM_PROMPT},
         {"role": "user", "content": f"当前时间：{now_local}\n用户描述：\n<<<\n{text}\n>>>"},
     ]
-    return _request_recognition(messages, settings, max_tokens=3000)
+    return _request_recognition(messages, settings, max_tokens=6000)
 
 
 ESTIMATE_SYSTEM_PROMPT = """你是 HealthOS 的营养估算助手。用户给出一个食物清单（名称、份量、单位），请按中国常见做法估算每一项整份的营养。
@@ -178,7 +178,7 @@ def estimate_nutrition(items: list[EstimateItemIn], settings: Settings) -> list[
         {"role": "system", "content": ESTIMATE_SYSTEM_PROMPT},
         {"role": "user", "content": f"食物清单：\n<<<\n{listing}\n>>>"},
     ]
-    result = _request_json(messages, settings, 3000, NutritionEstimate)
+    result = _request_json(messages, settings, 6000, NutritionEstimate)
     if len(result.items) != len(items):
         logger.warning("nutrition estimate: expected %d items, got %d", len(items), len(result.items))
         raise AIProviderError("AI_INVALID_RESPONSE")
@@ -226,7 +226,7 @@ def recognize_meal_photos(
         {"role": "user", "content": content},
     ]
     # 多张图片推理更久，输出上限也放宽一些
-    return _request_recognition(messages, settings, max_tokens=5000)
+    return _request_recognition(messages, settings, max_tokens=12000)
 
 
 def recognize_meal(image_bytes: bytes, settings: Settings, hint: str | None = None) -> MealRecognition:
@@ -252,7 +252,7 @@ def recognize_meal(image_bytes: bytes, settings: Settings, hint: str | None = No
         },
     ]
     # 模型先推理再输出，推理 token 也计入上限；太小会把 JSON 截断
-    return _request_recognition(messages, settings, max_tokens=4000)
+    return _request_recognition(messages, settings, max_tokens=8000)
 
 
 def _request_recognition(messages: list[dict[str, object]], settings: Settings, max_tokens: int) -> MealRecognition:
@@ -281,6 +281,9 @@ def _request_json(
         "messages": messages,
         "response_format": {"type": "json_object"},
         "temperature": 0.1,
+        # 模型默认先深度思考再输出；思考也占 max_tokens，复杂的多图会把额度用光而没有输出 JSON。
+        # 识别饮食不需要长推理，用 low 更快也更稳定
+        "reasoning_effort": settings.deepseek_reasoning_effort,
         "max_tokens": max_tokens,
     }
     last_code = "AI_INVALID_RESPONSE"

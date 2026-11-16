@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     deepseek_timeout_seconds: float = 60.0
     # 单次调用的总时长上限：服务商会持续发送保活数据，只靠读取超时无法及时中止失控的长输出
     deepseek_attempt_seconds: float = 45.0
+    # 饮食识别/估算的思考强度：none（不思考）/ low / high。
+    # 实测一顿 12 道菜的火锅：none 约 5 秒、结果相当；low 约 41 秒；默认 high 会把 5000 token 全用在思考上而失败
+    deepseek_reasoning_effort: str = "none"
     # 每人每天调用 AI 识别/估算的次数上限（0 表示不限）；管理员不受限
     ai_daily_limit: int = 50
 
