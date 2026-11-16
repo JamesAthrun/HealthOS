@@ -566,8 +566,8 @@ def generate_advice(context: dict[str, object], settings: Settings) -> ProviderR
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.3,
-        # 推理 token 也计入上限；餐单让输出变长
-        "max_tokens": 4000,
+        # 建议保留深度思考；思考 token 也计入上限，4000 偶尔不够（会只剩思考、没有 JSON），放宽到 12000
+        "max_tokens": 12000,
     }
     started = time.monotonic()
     last_code = "AI_INVALID_RESPONSE"
