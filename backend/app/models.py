@@ -194,7 +194,57 @@ class Meal(Base):
     meal_type: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(16), default="confirmed")
     notes: Mapped[str | None] = mapped_column(Text)
+    # 接受好友共餐邀请后生成的记录，指向那条邀请
+    shared_from_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("meal_shares.id", ondelete="SET NULL", name="fk_meals_shared_from_id")
+    )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Friendship(Base):
+    """好友关系。两人之间只有一行（pair_key = 较小 id:较大 id）；不加行级隔离，由 API 按当前用户过滤。"""
+
+    __tablename__ = "friendships"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    pair_key: Mapped[str] = mapped_column(String(73), unique=True)
+    requester_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    addressee_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # pending / accepted / declined
+    status: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    responded_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
+class MealShare(Base):
+    """共餐邀请：发送时把这一餐存成快照（照片复制到 photos/shares/<id>/），对方接受后在自己账户里生成一条记录。
+
+    不加行级隔离，由 API 按发送方/接收方过滤；不保存发送方的备注。
+    """
+
+    __tablename__ = "meal_shares"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    from_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    to_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # 发送方原记录 / 接收方生成的记录；各自属于不同账户，不建外键
+    source_meal_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    created_meal_id: Mapped[uuid.UUID | None] = mapped_column()
+    snapshot_json: Mapped[str] = mapped_column(Text)
+    photo_count: Mapped[int] = mapped_column(Integer, default=0)
+    # 接收方吃了多少（占整餐的比例）
+    ratio: Mapped[float] = mapped_column(Float)
+    # 发送方自己的记录占整餐的比例（分享时可缩小），用来从原记录还原整餐
+    source_ratio: Mapped[float] = mapped_column(Float, default=1.0, server_default="1")
+    # pending / accepted / declined / cancelled
+    status: Mapped[str] = mapped_column(String(16))
+    # 已接受后发送方又改了这一餐，等接收方决定是否同步
+    update_pending: Mapped[bool] = mapped_column(default=False, server_default=false())
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    responded_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, server_default=func.now(), onupdate=func.now()
     )

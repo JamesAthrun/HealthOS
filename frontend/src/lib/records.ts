@@ -97,7 +97,7 @@ export function mealEntry(row: Meal): Entry {
   return {
     kind: "meal", id: row.id, row, day: dayKey(row.eaten_at), sortAt: row.eaten_at,
     title: `${MEAL_LABELS[row.meal_type]} · ${row.food_items.map((f) => f.name).join("、")}`,
-    detail: timeOf(row.eaten_at),
+    detail: timeOf(row.eaten_at) + (row.shared_from ? ` · 与 ${row.shared_from} 共餐` : ""),
     side: `${mealKcal(row)} kcal`,
   };
 }

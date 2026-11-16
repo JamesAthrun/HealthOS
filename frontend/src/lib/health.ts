@@ -23,6 +23,8 @@ export type Meal = {
   food_items: FoodItem[];
   /** 这一餐的照片，第一张为封面 */
   photo_ids: string[];
+  /** 接受好友共餐邀请生成的记录：发起人的显示名 */
+  shared_from?: string | null;
   created_at: string;
   updated_at: string;
 };

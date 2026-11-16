@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useConfirm } from "@/lib/confirm";
 import type { CycleSettingsOut } from "@/lib/cycle";
+import { useUnreadMessages } from "@/lib/friends";
 import { useMe, useSetMe } from "@/lib/me";
 import { useAction } from "@/lib/useAction";
 
@@ -18,6 +19,7 @@ export default function MePage() {
   const { busy, error, run } = useAction();
   // 健康档案性别为女时才显示周期入口
   const [cycleAvailable, setCycleAvailable] = useState(false);
+  const unread = useUnreadMessages();
 
   useEffect(() => {
     if (!me) return;
@@ -49,6 +51,18 @@ export default function MePage() {
           <li><Link href="/weights/">体重与目标</Link></li>
           {cycleAvailable && <li><Link href="/cycle/">生理周期</Link></li>}
           <li><Link href="/notes/">关于我与食物偏好</Link></li>
+        </ul>
+      </section>
+
+      <section className="card">
+        <h2>好友</h2>
+        <ul className="menu-list">
+          <li>
+            <Link href="/messages/">
+              <span>消息{unread > 0 && <span className="badge">{unread}</span>}</span>
+            </Link>
+          </li>
+          <li><Link href="/friends/">好友管理</Link></li>
         </ul>
       </section>
 

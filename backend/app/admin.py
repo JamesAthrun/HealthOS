@@ -12,7 +12,7 @@ from app.ai_quota import local_midnight_utc
 from app.audit import add_audit_event, set_tenant_context
 from app.config import get_settings
 from app.deps import AdminUser, DbSession
-from app.models import AICall, Advice, AuditEvent, BackupRun, Meal, User, UserSession
+from app.models import AICall, Advice, AuditEvent, BackupRun, Meal, MealShare, User, UserSession
 from app.security import hash_password
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -316,8 +316,16 @@ def delete_user(user_id: uuid.UUID, body: DeleteUserIn, request: Request, admin:
     if body.confirm_username.strip().lower() != user.username:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "输入的用户名不一致")
     deleted_id = user.id
+    share_ids = list(
+        db.scalars(
+            select(MealShare.id).where((MealShare.from_user_id == user.id) | (MealShare.to_user_id == user.id))
+        )
+    )
     db.delete(user)
     add_audit_event(db, user_id=admin.id, event_type="admin_user_deleted", outcome="success", ip_address=_client_ip(request))
     db.commit()
-    # 数据库记录已随账号级联删除，再清理这个账号的照片文件
-    shutil.rmtree(get_settings().photo_dir / str(deleted_id), ignore_errors=True)
+    # 数据库记录已随账号级联删除，再清理这个账号的照片文件和共餐邀请里的照片副本
+    photo_dir = get_settings().photo_dir
+    shutil.rmtree(photo_dir / str(deleted_id), ignore_errors=True)
+    for share_id in share_ids:
+        shutil.rmtree(photo_dir / "shares" / str(share_id), ignore_errors=True)

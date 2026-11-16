@@ -8,7 +8,7 @@ from sqlalchemy import delete, select, update
 
 from app.audit import add_audit_event, commit_with_tenant_context
 from app.deps import CurrentUser, DbSession
-from app.models import Exercise, FoodItem, Meal, MealPhoto, Sleep
+from app.models import Exercise, FoodItem, Meal, MealPhoto, MealShare, Sleep, User
 from app.repositories import get_owned_exercise, get_owned_meal, get_owned_sleep
 
 router = APIRouter(prefix="/api", tags=["records"])
@@ -92,6 +92,8 @@ class MealOut(BaseModel):
     notes: str | None
     food_items: list[FoodItemOut]
     photo_ids: list[uuid.UUID]
+    # 接受好友共餐邀请生成的记录：发起人的显示名
+    shared_from: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -154,6 +156,13 @@ def _meal_out(db: DbSession, meal: Meal) -> MealOut:
             .order_by(FoodItem.name)
         )
     )
+    shared_from = None
+    if meal.shared_from_id is not None:
+        shared_from = db.scalar(
+            select(User.display_name)
+            .join(MealShare, MealShare.from_user_id == User.id)
+            .where(MealShare.id == meal.shared_from_id)
+        )
     return MealOut(
         id=meal.id,
         eaten_at=meal.eaten_at,
@@ -162,6 +171,7 @@ def _meal_out(db: DbSession, meal: Meal) -> MealOut:
         notes=meal.notes,
         food_items=[FoodItemOut.model_validate(item, from_attributes=True) for item in items],
         photo_ids=_meal_photo_ids(db, meal),
+        shared_from=shared_from,
         created_at=meal.created_at,
         updated_at=meal.updated_at,
     )
@@ -217,6 +227,10 @@ def patch_meal(
     if body.photo_ids is not None:
         set_meal_photos(db, meal, user.id, body.photo_ids)
     commit_with_tenant_context(db, user.id)
+    if body.food_items is not None or {"eaten_at", "meal_type"} & body.model_fields_set:
+        from app.friends import notify_meal_updated  # 避免循环导入
+
+        notify_meal_updated(db, user, meal)
     db.refresh(meal)
     return _meal_out(db, meal)
 

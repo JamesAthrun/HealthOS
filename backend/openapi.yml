@@ -1875,6 +1875,350 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/friends:
+    get:
+      tags:
+      - friends
+      summary: List Friends
+      operationId: list_friends_api_friends_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/FriendOut'
+                type: array
+                title: Response List Friends Api Friends Get
+      security:
+      - SessionCookie: []
+  /api/friends/requests:
+    post:
+      tags:
+      - friends
+      summary: Send Friend Request
+      operationId: send_friend_request_api_friends_requests_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequestOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SessionCookie: []
+  /api/friends/requests/{request_id}/accept:
+    post:
+      tags:
+      - friends
+      summary: Accept Friend Request
+      operationId: accept_friend_request_api_friends_requests__request_id__accept_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Request Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/friends/requests/{request_id}/decline:
+    post:
+      tags:
+      - friends
+      summary: Decline Friend Request
+      operationId: decline_friend_request_api_friends_requests__request_id__decline_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Request Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/friends/{friend_id}:
+    delete:
+      tags:
+      - friends
+      summary: Remove Friend
+      description: 删除好友，或撤回自己发出的好友请求。双方之间未处理的共餐邀请一并取消。
+      operationId: remove_friend_api_friends__friend_id__delete
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: friend_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Friend Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/messages/unread-count:
+    get:
+      tags:
+      - friends
+      summary: Unread Count
+      operationId: unread_count_api_messages_unread_count_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadOut'
+      security:
+      - SessionCookie: []
+  /api/messages:
+    get:
+      tags:
+      - friends
+      summary: List Messages
+      operationId: list_messages_api_messages_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagesOut'
+      security:
+      - SessionCookie: []
+  /api/meals/{meal_id}/shares:
+    post:
+      tags:
+      - friends
+      summary: Share Meal
+      operationId: share_meal_api_meals__meal_id__shares_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: meal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Meal Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareResultOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-shares/{share_id}/photos/{index}:
+    get:
+      tags:
+      - friends
+      summary: Get Share Photo
+      operationId: get_share_photo_api_meal_shares__share_id__photos__index__get
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: share_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Share Id
+      - name: index
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Index
+      - name: size
+        in: query
+        required: false
+        schema:
+          enum:
+          - full
+          - thumb
+          type: string
+          default: full
+          title: Size
+      responses:
+        '200':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-shares/{share_id}/accept:
+    post:
+      tags:
+      - friends
+      summary: Accept Share
+      operationId: accept_share_api_meal_shares__share_id__accept_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: share_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Share Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-shares/{share_id}/decline:
+    post:
+      tags:
+      - friends
+      summary: Decline Share
+      operationId: decline_share_api_meal_shares__share_id__decline_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: share_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Share Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-shares/{share_id}/cancel:
+    post:
+      tags:
+      - friends
+      summary: Cancel Share
+      operationId: cancel_share_api_meal_shares__share_id__cancel_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: share_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Share Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/meal-shares/{share_id}/sync:
+    post:
+      tags:
+      - friends
+      summary: Sync Share
+      description: 发送方改过这一餐后：apply=true 按自己的份额同步菜品和时间，false 忽略这次更新。
+      operationId: sync_share_api_meal_shares__share_id__sync_post
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: share_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Share Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncIn'
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/admin/dashboard:
     get:
       tags:
@@ -2053,6 +2397,46 @@ components:
       - advice_7d
       - advice_failed_7d
       title: AIStats
+    AcceptIn:
+      properties:
+        ratio:
+          type: number
+          maximum: 1.0
+          exclusiveMinimum: 0.0
+          title: Ratio
+        eaten_at:
+          type: string
+          format: date-time
+          title: Eaten At
+        meal_type:
+          type: string
+          enum:
+          - breakfast
+          - lunch
+          - dinner
+          - snack
+          title: Meal Type
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+        food_items:
+          items:
+            $ref: '#/components/schemas/FoodItemIn'
+          type: array
+          maxItems: 50
+          minItems: 1
+          title: Food Items
+      additionalProperties: false
+      type: object
+      required:
+      - ratio
+      - eaten_at
+      - meal_type
+      - food_items
+      title: AcceptIn
     AccountSettingsIn:
       properties:
         display_name:
@@ -3213,6 +3597,45 @@ components:
       - food_name
       - count
       title: FrequentFood
+    FriendOut:
+      properties:
+        user:
+          $ref: '#/components/schemas/UserBrief'
+        since:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Since
+      type: object
+      required:
+      - user
+      - since
+      title: FriendOut
+    FriendRequestIn:
+      properties:
+        username:
+          type: string
+          maxLength: 32
+          minLength: 1
+          title: Username
+      additionalProperties: false
+      type: object
+      required:
+      - username
+      title: FriendRequestIn
+    FriendRequestOut:
+      properties:
+        status:
+          type: string
+          enum:
+          - pending
+          - accepted
+          title: Status
+      type: object
+      required:
+      - status
+      title: FriendRequestOut
     GenerateAdviceIn:
       properties:
         for_date:
@@ -3518,6 +3941,11 @@ components:
             format: uuid
           type: array
           title: Photo Ids
+        shared_from:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Shared From
         created_at:
           type: string
           format: date-time
@@ -3710,6 +4138,68 @@ components:
       required:
       - text
       title: MealTextIn
+    MessageOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          type: string
+          enum:
+          - friend_request
+          - meal_share
+          title: Kind
+        direction:
+          type: string
+          enum:
+          - in
+          - out
+          title: Direction
+        status:
+          type: string
+          title: Status
+        other:
+          $ref: '#/components/schemas/UserBrief'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        responded_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Responded At
+        share:
+          anyOf:
+          - $ref: '#/components/schemas/ShareOut'
+          - type: 'null'
+      type: object
+      required:
+      - id
+      - kind
+      - direction
+      - status
+      - other
+      - created_at
+      - responded_at
+      title: MessageOut
+    MessagesOut:
+      properties:
+        unread:
+          type: integer
+          title: Unread
+        items:
+          items:
+            $ref: '#/components/schemas/MessageOut'
+          type: array
+          title: Items
+      type: object
+      required:
+      - unread
+      - items
+      title: MessagesOut
     MultiPhotoAnalyzeIn:
       properties:
         photo_ids:
@@ -4234,6 +4724,85 @@ components:
       - last_backup
       - last_ok_backup_at
       title: ServerStats
+    ShareIn:
+      properties:
+        friend_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          maxItems: 10
+          minItems: 1
+          title: Friend Ids
+        ratio:
+          type: number
+          maximum: 1.0
+          exclusiveMinimum: 0.0
+          title: Ratio
+        my_ratio:
+          anyOf:
+          - type: number
+            maximum: 1.0
+            exclusiveMinimum: 0.0
+          - type: 'null'
+          title: My Ratio
+      additionalProperties: false
+      type: object
+      required:
+      - friend_ids
+      - ratio
+      title: ShareIn
+    ShareOut:
+      properties:
+        eaten_at:
+          type: string
+          format: date-time
+          title: Eaten At
+        meal_type:
+          type: string
+          title: Meal Type
+        food_items:
+          items:
+            $ref: '#/components/schemas/FoodItemIn'
+          type: array
+          title: Food Items
+        photo_count:
+          type: integer
+          title: Photo Count
+        ratio:
+          type: number
+          title: Ratio
+        created_meal_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Created Meal Id
+        update_pending:
+          type: boolean
+          title: Update Pending
+      type: object
+      required:
+      - eaten_at
+      - meal_type
+      - food_items
+      - photo_count
+      - ratio
+      - created_meal_id
+      - update_pending
+      title: ShareOut
+    ShareResultOut:
+      properties:
+        shared:
+          type: integer
+          title: Shared
+        meal:
+          $ref: '#/components/schemas/MealOut'
+      type: object
+      required:
+      - shared
+      - meal
+      title: ShareResultOut
     SleepIn:
       properties:
         started_at:
@@ -4335,6 +4904,16 @@ components:
       additionalProperties: false
       type: object
       title: SleepPatch
+    SyncIn:
+      properties:
+        apply:
+          type: boolean
+          title: Apply
+      additionalProperties: false
+      type: object
+      required:
+      - apply
+      title: SyncIn
     TodayDashboard:
       properties:
         date:
@@ -4401,6 +4980,33 @@ components:
       - weight_kg
       - avg_7d_kg
       title: TrendPoint
+    UnreadOut:
+      properties:
+        unread:
+          type: integer
+          title: Unread
+      type: object
+      required:
+      - unread
+      title: UnreadOut
+    UserBrief:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        username:
+          type: string
+          title: Username
+        display_name:
+          type: string
+          title: Display Name
+      type: object
+      required:
+      - id
+      - username
+      - display_name
+      title: UserBrief
     UserOut:
       properties:
         id:
