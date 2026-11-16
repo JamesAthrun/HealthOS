@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 
 import { FoodItemsEditor } from "@/components/FoodItemsEditor";
 import { MealPhotoEditor } from "@/components/MealPhotoEditor";
+import { MealSharePanel } from "@/components/MealSharePanel";
 import { api } from "@/lib/api";
 import { useConfirm } from "@/lib/confirm";
 import { useFoodPreferences } from "@/lib/foodPrefs";
@@ -130,6 +131,7 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
     <form className="stack" onSubmit={onSubmit}>
       {error && <p className="error" role="alert">{error}</p>}
       {prefs.error && <p className="error" role="alert">{prefs.error}</p>}
+      {initial?.shared_from && <p className="muted">🤝 与 {initial.shared_from} 共餐</p>}
       {draft && <NutritionCard items={items} note="AI 粗略估算，仅供参考，可以直接修改下面的内容；改份量会按比例换算。" />}
       {initial && <NutritionCard items={items} note="这一餐的合计；每种食物的明细见下方。" />}
       {initial && (
@@ -156,6 +158,7 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
         <label>备注<textarea value={notes} maxLength={2000} onChange={(e) => setNotes(e.target.value)} /></label>
       </details>
       <button type="submit" disabled={busy}>{busy ? "保存中…" : draft ? "确认并记录" : "保存"}</button>
+      {initial && <MealSharePanel meal={initial} onDone={(message) => onDone(message)} />}
       {initial && <button type="button" className="ghost-danger" disabled={busy} onClick={() => void remove()}>删除这条记录</button>}
     </form>
   );

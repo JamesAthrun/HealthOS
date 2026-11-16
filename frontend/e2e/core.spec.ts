@@ -121,3 +121,50 @@ test("管理员重置用户密码后，用户用临时密码登录", async ({ pa
   await user.getByRole("button", { name: "保存" }).click();
   await expect(user.getByRole("status")).toContainText("密码已修改");
 });
+
+test("加好友后分享一餐，对方在消息页接受并记到自己账户", async ({ page, browser }) => {
+  await login(page, USER);
+  await page.goto("/friends/");
+  await page.getByLabel(/对方的用户名/).fill(ADMIN.username);
+  await page.getByRole("button", { name: "发送好友请求" }).click();
+  await expect(page.getByRole("status")).toContainText("已发送好友请求");
+
+  const admin = await newPage(browser);
+  await login(admin, ADMIN);
+  await expect(admin.locator(".tab-dot")).toBeVisible();
+  await admin.goto("/messages/");
+  await expect(admin.getByText("测试用户 想加你为好友")).toBeVisible();
+  await admin.getByRole("button", { name: "接受", exact: true }).click();
+  await expect(admin.getByRole("status")).toContainText("已成为好友");
+
+  const origin = new URL(page.url()).origin;
+  const created = await page.request.post("/api/meals", {
+    headers: { Origin: origin },
+    data: {
+      eaten_at: new Date().toISOString(),
+      meal_type: "dinner",
+      food_items: [{ name: "e2e火锅", quantity: 1, unit: "锅", kcal: 2000, protein_g: 100, carbs_g: 80, fat_g: 120 }],
+    },
+  });
+  expect(created.status()).toBe(201);
+  await page.goto("/meals/");
+  await page.getByRole("button", { name: /e2e火锅/ }).first().click();
+  await page.getByText("与好友共享这一餐").click();
+  await page.getByRole("button", { name: "测试管理员" }).click();
+  // 还有一个没用 HealthOS 的人：3 人平分
+  await page.getByRole("button", { name: "增加一人" }).click();
+  await expect(page.getByText("3 人", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "发送共餐邀请" }).click();
+  await expect(page.getByRole("status")).toContainText("已发给 1 位好友");
+  const mine = await page.request.get("/api/meals").then((r) => r.json());
+  expect(mine.find((m: { food_items: { name: string }[] }) => m.food_items[0].name === "e2e火锅").food_items[0].kcal).toBe(666.7);
+
+  await admin.goto("/messages/");
+  await admin.getByRole("button", { name: "接受…" }).click();
+  await admin.getByRole("button", { name: "接受并记录" }).click();
+  await expect(admin.getByRole("status")).toContainText("已记到你的饮食记录");
+  const theirs = await admin.request.get("/api/meals").then((r) => r.json());
+  const shared = theirs.find((m: { food_items: { name: string }[] }) => m.food_items[0].name === "e2e火锅");
+  expect(shared.shared_from).toBe("测试用户");
+  expect(shared.food_items[0].kcal).toBe(666.7);
+});
