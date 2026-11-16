@@ -13,7 +13,7 @@ from pillow_heif import register_heif_opener
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from app.ai_quota import ai_quota
+from app.ai_quota import ai_quota, tracked_ai_call
 from app.audit import add_audit_event, commit_with_tenant_context, set_tenant_context
 from app.config import get_settings
 from app.dashboard import _user_timezone
@@ -344,7 +344,8 @@ def analyze_meal_photo(
     db.refresh(analysis)
 
     try:
-        result = recognize_meal(_photo_path(photo.storage_key).read_bytes(), settings, hint=hint)
+        with tracked_ai_call(user, "photo"):
+            result = recognize_meal(_photo_path(photo.storage_key).read_bytes(), settings, hint=hint)
     except AIProviderError as exc:
         analysis.status = "failed"
         analysis.error_code = exc.code
@@ -408,7 +409,8 @@ def analyze_meal_photos(body: MultiPhotoAnalyzeIn, user: CurrentUser, db: DbSess
 
     try:
         images = [_photo_path(photo.storage_key).read_bytes() for photo in photos]
-        result = recognize_meal_photos(images, settings, note=note, hint=hint)
+        with tracked_ai_call(user, "photos"):
+            result = recognize_meal_photos(images, settings, note=note, hint=hint)
     except AIProviderError as exc:
         analysis.status = "failed"
         analysis.error_code = exc.code
@@ -450,7 +452,8 @@ def preview_meal_photos(body: PhotoPreviewIn, user: CurrentUser, db: DbSession) 
     ai_quota.consume(user)
     try:
         images = [_photo_path(photo.storage_key).read_bytes() for photo in photos]
-        return recognize_meal_photos(images, settings, note=note)
+        with tracked_ai_call(user, "preview"):
+            return recognize_meal_photos(images, settings, note=note)
     except FileNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "照片文件不存在") from exc
     except AIProviderError as exc:
@@ -473,7 +476,8 @@ def analyze_meal_text(body: MealTextIn, user: CurrentUser) -> MealRecognition:
     ai_quota.consume(user)
     now_local = datetime.now(_user_timezone(user)).strftime("%Y-%m-%d %H:%M")
     try:
-        return recognize_meal_text(text, settings, now_local)
+        with tracked_ai_call(user, "text"):
+            return recognize_meal_text(text, settings, now_local)
     except AIProviderError as exc:
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, "AI 识别暂时失败，可稍后重试或手工记录"
@@ -490,7 +494,8 @@ def estimate_meal_nutrition(body: EstimateIn, user: CurrentUser) -> EstimateOut:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 尚未配置，可以手动填写热量")
     ai_quota.consume(user)
     try:
-        return EstimateOut(items=estimate_nutrition(body.items, settings))
+        with tracked_ai_call(user, "estimate"):
+            return EstimateOut(items=estimate_nutrition(body.items, settings))
     except AIProviderError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "营养估算暂时失败，可稍后重试") from exc
 

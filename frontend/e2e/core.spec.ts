@@ -63,7 +63,7 @@ test("直接填写记一餐，再修改份量保存，然后删除并撤销", as
 
 test("管理员生成邀请码，新用户用链接注册并自动登录", async ({ page, browser }) => {
   await login(page, ADMIN);
-  await page.goto("/invites/");
+  await page.goto("/admin/");
   await page.getByLabel(/备注/).fill("e2e");
   await page.getByRole("button", { name: "生成邀请码" }).click();
   const code = (await page.locator(".invite-code").innerText()).trim();
@@ -89,10 +89,22 @@ test("管理员生成邀请码，新用户用链接注册并自动登录", async
   await expect(other.locator("p.error")).toContainText("邀请码无效");
 });
 
+test("管理后台显示使用情况和服务器状态", async ({ page }) => {
+  await login(page, ADMIN);
+  await page.getByRole("link", { name: /我的/ }).click();
+  await page.getByRole("link", { name: /管理后台/ }).click();
+  await expect(page.getByRole("heading", { name: "管理后台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "家庭成员使用情况" })).toBeVisible();
+  await expect(page.locator(".data-table")).toContainText("e2euser");
+  await expect(page.getByRole("heading", { name: "服务器" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "用户管理" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "邀请码", exact: true })).toBeVisible();
+});
+
 test("管理员重置用户密码后，用户用临时密码登录", async ({ page, browser }) => {
   await login(page, ADMIN);
-  await page.goto("/users/");
-  const row = page.locator(".entry", { hasText: "e2euser" });
+  await page.goto("/admin/");
+  const row = page.locator("#users-title ~ .card .entry", { hasText: "e2euser" });
   await row.getByRole("button", { name: "重置密码" }).click();
   await page.getByRole("button", { name: "重置", exact: true }).click();
   const temporary = (await page.locator(".invite-code").innerText()).trim();

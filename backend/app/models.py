@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (
+    BigInteger,
     Date,
     DateTime,
     Float,
@@ -80,6 +81,35 @@ class AuditEvent(Base):
     outcome: Mapped[str] = mapped_column(String(16))
     ip_address: Mapped[str | None] = mapped_column(String(45))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+
+
+class AICall(Base):
+    """每次调用 AI 识别/估算的元数据（不含内容），用于每日次数限制和管理员总览。"""
+
+    __tablename__ = "ai_calls"
+    __table_args__ = (Index("ix_ai_calls_user_started", "user_id", "started_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    # photo / photos / preview / text / estimate
+    kind: Mapped[str] = mapped_column(String(16))
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    # pending / ok / AI_TIMEOUT / AI_INVALID_RESPONSE / AI_HTTP_503 / error ...
+    outcome: Mapped[str] = mapped_column(String(32), default="pending")
+
+
+class BackupRun(Base):
+    """每日备份脚本写入的结果，供管理员总览查看。"""
+
+    __tablename__ = "backup_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    finished_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now(), index=True)
+    ok: Mapped[bool] = mapped_column()
+    db_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    photos_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    message: Mapped[str | None] = mapped_column(String(200))
 
 
 class InviteCode(Base):

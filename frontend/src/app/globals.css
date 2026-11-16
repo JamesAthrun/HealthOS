@@ -1206,3 +1206,63 @@ a.button.secondary {
 .modal .actions {
   margin-top: 16px;
 }
+
+/* 管理后台 */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.stat-grid small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stat-grid strong {
+  font-size: 18px;
+}
+
+.text-warning {
+  color: #b7791f;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.data-table th,
+.data-table td {
+  padding: 8px 6px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table th {
+  border-top: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.data-table td small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
