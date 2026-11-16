@@ -15,7 +15,9 @@ export function MealSharePanel({ meal, onDone }: { meal: Meal; onDone: (message:
   const [loadError, setLoadError] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [scaleMine, setScaleMine] = useState(true);
-  const people = selected.length + 1;
+  // 一起吃但没有用 HealthOS 的人，也要算进平分人数
+  const [others, setOthers] = useState(0);
+  const people = selected.length + 1 + others;
   const ratio = 1 / people;
 
   function load(open: boolean) {
@@ -64,7 +66,17 @@ export function MealSharePanel({ meal, onDone }: { meal: Meal; onDone: (message:
             </div>
             {selected.length > 0 && (
               <>
-                <p className="muted">{people} 人平分，每人约 {ratioLabel(ratio)}。</p>
+                <div>
+                  <span className="field-label">一共几个人吃</span>
+                  <div className="chips stepper" role="group" aria-label="一共几个人吃">
+                    <button type="button" aria-label="减少一人" disabled={others === 0} onClick={() => setOthers((n) => Math.max(0, n - 1))}>−</button>
+                    <strong>{people} 人</strong>
+                    <button type="button" aria-label="增加一人" disabled={people >= 20} onClick={() => setOthers((n) => n + 1)}>+</button>
+                  </div>
+                  <small className="muted">
+                    你 + {selected.length} 位好友{others > 0 ? ` + ${others} 位没用 HealthOS 的人` : ""}，平分后每人约 {ratioLabel(ratio)}。有人没用这个系统就点 +。
+                  </small>
+                </div>
                 <label className="checkbox-label">
                   <input type="checkbox" checked={scaleMine} onChange={(e) => setScaleMine(e.target.checked)} />
                   我记的是整餐，把我的记录也改成 {ratioLabel(ratio)}

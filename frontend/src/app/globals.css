@@ -1301,3 +1301,11 @@ a.button.secondary {
 .friend-row button {
   width: auto;
 }
+.stepper {
+  align-items: center;
+}
+
+.stepper button {
+  min-width: 44px;
+  font-size: 18px;
+}

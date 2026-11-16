@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "./api";
 import type { FoodItemInput, Meal } from "./health";
-import { type DraftItem, scaleItem } from "./nutrition";
+import { type DraftItem, NUTRIENTS } from "./nutrition";
 
 export type UserBrief = { id: string; username: string; display_name: string };
 
@@ -66,9 +66,14 @@ export function useUnreadMessages(enabled = true): number {
   return enabled ? unread : 0;
 }
 
-/** 整餐按比例分成自己那一份 */
+/** 整餐按比例分成自己那一份（营养按精确比例算，份量只保留两位小数） */
 export function scaleItems(items: FoodItemInput[], ratio: number): DraftItem[] {
-  return items.map((item) => scaleItem({ ...item }, Math.round(item.quantity * ratio * 100) / 100 || 0.01));
+  const part = (value: number | null | undefined) => (typeof value === "number" ? Math.round(value * ratio * 10) / 10 : value);
+  return items.map((item) => {
+    const scaled: DraftItem = { ...item, quantity: Math.max(Math.round(item.quantity * ratio * 100) / 100, 0.01), kcal: part(item.kcal) as number };
+    for (const { key } of NUTRIENTS) scaled[key] = part(item[key]) as never;
+    return scaled;
+  });
 }
 
 export function ratioLabel(ratio: number): string {

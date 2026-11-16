@@ -151,10 +151,13 @@ test("加好友后分享一餐，对方在消息页接受并记到自己账户",
   await page.getByRole("button", { name: /e2e火锅/ }).first().click();
   await page.getByText("与好友共享这一餐").click();
   await page.getByRole("button", { name: "测试管理员" }).click();
+  // 还有一个没用 HealthOS 的人：3 人平分
+  await page.getByRole("button", { name: "增加一人" }).click();
+  await expect(page.getByText("3 人", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "发送共餐邀请" }).click();
   await expect(page.getByRole("status")).toContainText("已发给 1 位好友");
   const mine = await page.request.get("/api/meals").then((r) => r.json());
-  expect(mine.find((m: { food_items: { name: string }[] }) => m.food_items[0].name === "e2e火锅").food_items[0].kcal).toBe(1000);
+  expect(mine.find((m: { food_items: { name: string }[] }) => m.food_items[0].name === "e2e火锅").food_items[0].kcal).toBe(666.7);
 
   await admin.goto("/messages/");
   await admin.getByRole("button", { name: "接受…" }).click();
@@ -163,5 +166,5 @@ test("加好友后分享一餐，对方在消息页接受并记到自己账户",
   const theirs = await admin.request.get("/api/meals").then((r) => r.json());
   const shared = theirs.find((m: { food_items: { name: string }[] }) => m.food_items[0].name === "e2e火锅");
   expect(shared.shared_from).toBe("测试用户");
-  expect(shared.food_items[0].kcal).toBe(1000);
+  expect(shared.food_items[0].kcal).toBe(666.7);
 });
