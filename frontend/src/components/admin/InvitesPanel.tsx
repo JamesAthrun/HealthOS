@@ -5,7 +5,6 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useConfirm } from "@/lib/confirm";
 import { formatLocalDateTime } from "@/lib/health";
-import { useMe } from "@/lib/useMe";
 import { useAction } from "@/lib/useAction";
 
 type Invite = {
@@ -26,8 +25,8 @@ const STATUS_LABELS: Record<Invite["status"], string> = {
   revoked: "已作废",
 };
 
-export default function InvitesPage() {
-  const me = useMe();
+/** 管理后台里的“邀请码”部分（只在管理员页面里使用） */
+export function InvitesPanel() {
   const confirm = useConfirm();
   const { busy, error, setError, run } = useAction();
   const [invites, setInvites] = useState<Invite[] | null>(null);
@@ -43,13 +42,12 @@ export default function InvitesPage() {
   }, [setError]);
 
   useEffect(() => {
-    if (!me?.is_admin) return;
     let active = true;
     api<Invite[]>("/admin/invites")
       .then((data) => { if (active) setInvites(data); })
       .catch((err) => { if (active) setError(err instanceof ApiError ? err.message : "加载失败"); });
     return () => { active = false; };
-  }, [me, setError]);
+  }, [setError]);
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -75,12 +73,9 @@ export default function InvitesPage() {
     if (await run(() => api(`/admin/invites/${invite.id}`, { method: "DELETE" }), "作废失败")) await reload();
   }
 
-  if (!me) return <p className="muted">加载中…</p>;
-  if (!me.is_admin) return <p className="muted">只有管理员可以管理邀请码。</p>;
-
   return (
-    <div className="stack">
-      <h1>邀请码</h1>
+    <section className="stack" aria-labelledby="invites-title">
+      <h2 id="invites-title">邀请码</h2>
       <form className="card stack" onSubmit={onCreate}>
         <p className="muted">每个邀请码只能注册一个账号，7 天内有效。生成后把邀请码或注册链接发给家人。</p>
         <label>
@@ -131,6 +126,6 @@ export default function InvitesPage() {
           </ul>
         )}
       </section>
-    </div>
+    </section>
   );
 }

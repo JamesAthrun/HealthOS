@@ -64,8 +64,7 @@ export default function MePage() {
         <section className="card">
           <h2>管理</h2>
           <ul className="menu-list">
-            <li><Link href="/invites/">邀请码（邀请家人注册）</Link></li>
-            <li><Link href="/users/">用户管理（重置密码、删除账号）</Link></li>
+            <li><Link href="/admin/">管理后台（使用情况、用户、邀请码）</Link></li>
           </ul>
         </section>
       )}

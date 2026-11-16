@@ -1875,6 +1875,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/admin/dashboard:
+    get:
+      tags:
+      - admin
+      summary: Dashboard
+      description: 家庭成员的使用量、AI 调用、服务器状态和最近安全事件。只统计数量，不读取任何记录内容。
+      operationId: dashboard_api_admin_dashboard_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardOut'
+      security:
+      - SessionCookie: []
   /api/admin/users:
     get:
       tags:
@@ -1971,6 +1987,72 @@ paths:
                 title: Response Health Api Health Get
 components:
   schemas:
+    AIOutcomeCount:
+      properties:
+        outcome:
+          type: string
+          title: Outcome
+        count:
+          type: integer
+          title: Count
+      type: object
+      required:
+      - outcome
+      - count
+      title: AIOutcomeCount
+    AIStats:
+      properties:
+        daily_limit:
+          type: integer
+          title: Daily Limit
+        calls_today:
+          type: integer
+          title: Calls Today
+        calls_7d:
+          type: integer
+          title: Calls 7D
+        failed_7d:
+          type: integer
+          title: Failed 7D
+        avg_ms_7d:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Avg Ms 7D
+        slowest_ms_7d:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Slowest Ms 7D
+        by_kind_7d:
+          additionalProperties:
+            type: integer
+          type: object
+          title: By Kind 7D
+        failures_7d:
+          items:
+            $ref: '#/components/schemas/AIOutcomeCount'
+          type: array
+          title: Failures 7D
+        advice_7d:
+          type: integer
+          title: Advice 7D
+        advice_failed_7d:
+          type: integer
+          title: Advice Failed 7D
+      type: object
+      required:
+      - daily_limit
+      - calls_today
+      - calls_7d
+      - failed_7d
+      - avg_ms_7d
+      - slowest_ms_7d
+      - by_kind_7d
+      - failures_7d
+      - advice_7d
+      - advice_failed_7d
+      title: AIStats
     AccountSettingsIn:
       properties:
         display_name:
@@ -2214,6 +2296,38 @@ components:
       - ip_address
       - created_at
       title: AuditEventOut
+    BackupInfo:
+      properties:
+        finished_at:
+          type: string
+          format: date-time
+          title: Finished At
+        ok:
+          type: boolean
+          title: Ok
+        db_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Db Bytes
+        photos_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Photos Bytes
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+      type: object
+      required:
+      - finished_at
+      - ok
+      - db_bytes
+      - photos_bytes
+      - message
+      title: BackupInfo
     ChangePasswordIn:
       properties:
         current_password:
@@ -2583,6 +2697,34 @@ components:
       - sleep_minutes
       - sleep_quality
       title: DailySummary
+    DashboardOut:
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+        users:
+          items:
+            $ref: '#/components/schemas/UserUsage'
+          type: array
+          title: Users
+        ai:
+          $ref: '#/components/schemas/AIStats'
+        server:
+          $ref: '#/components/schemas/ServerStats'
+        security_events:
+          items:
+            $ref: '#/components/schemas/SecurityEvent'
+          type: array
+          title: Security Events
+      type: object
+      required:
+      - generated_at
+      - users
+      - ai
+      - server
+      - security_events
+      title: DashboardOut
     DeleteUserIn:
       properties:
         confirm_username:
@@ -4029,6 +4171,69 @@ components:
       required:
       - temporary_password
       title: ResetPasswordOut
+    SecurityEvent:
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        username:
+          type: string
+          title: Username
+        event_type:
+          type: string
+          title: Event Type
+        outcome:
+          type: string
+          title: Outcome
+        ip_address:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ip Address
+      type: object
+      required:
+      - created_at
+      - username
+      - event_type
+      - outcome
+      - ip_address
+      title: SecurityEvent
+    ServerStats:
+      properties:
+        disk_total_bytes:
+          type: integer
+          title: Disk Total Bytes
+        disk_free_bytes:
+          type: integer
+          title: Disk Free Bytes
+        photos_bytes:
+          type: integer
+          title: Photos Bytes
+        db_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Db Bytes
+        last_backup:
+          anyOf:
+          - $ref: '#/components/schemas/BackupInfo'
+          - type: 'null'
+        last_ok_backup_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Ok Backup At
+      type: object
+      required:
+      - disk_total_bytes
+      - disk_free_bytes
+      - photos_bytes
+      - db_bytes
+      - last_backup
+      - last_ok_backup_at
+      title: ServerStats
     SleepIn:
       properties:
         started_at:
@@ -4225,6 +4430,59 @@ components:
       - timezone
       - locale
       title: UserOut
+    UserUsage:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        username:
+          type: string
+          title: Username
+        display_name:
+          type: string
+          title: Display Name
+        is_admin:
+          type: boolean
+          title: Is Admin
+        locked:
+          type: boolean
+          title: Locked
+        last_login_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Login At
+        meals_today:
+          type: integer
+          title: Meals Today
+        meals_7d:
+          type: integer
+          title: Meals 7D
+        ai_today:
+          type: integer
+          title: Ai Today
+        ai_7d:
+          type: integer
+          title: Ai 7D
+        advice_7d:
+          type: integer
+          title: Advice 7D
+      type: object
+      required:
+      - id
+      - username
+      - display_name
+      - is_admin
+      - locked
+      - last_login_at
+      - meals_today
+      - meals_7d
+      - ai_today
+      - ai_7d
+      - advice_7d
+      title: UserUsage
     ValidationError:
       properties:
         loc:
