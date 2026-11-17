@@ -165,7 +165,7 @@ export default function MessagesPage() {
         </section>
       )}
       {data?.items.length === 0 && (
-        <p className="muted">在饮食记录里点“与好友共享”，就能把一起吃的饭发给好友。先去 <Link href="/friends/">添加好友</Link>。</p>
+        <p className="muted">在“记录”里点开一条饮食记录，最上面有“🤝 和好友分享这一餐”。先去 <Link href="/friends/">添加好友</Link>。</p>
       )}
 
       {accepting && (

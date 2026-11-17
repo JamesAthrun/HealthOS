@@ -133,6 +133,7 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
       {prefs.error && <p className="error" role="alert">{prefs.error}</p>}
       {initial?.shared_from && <p className="muted">🤝 与 {initial.shared_from} 共餐</p>}
       {draft && <NutritionCard items={items} note="AI 粗略估算，仅供参考，可以直接修改下面的内容；改份量会按比例换算。" />}
+      {initial && <MealSharePanel meal={initial} onDone={(message) => onDone(message)} />}
       {initial && <NutritionCard items={items} note="这一餐的合计；每种食物的明细见下方。" />}
       {initial && (
         <MealPhotoEditor photoIds={photoIds} onChange={setPhotoIds} onRecognized={(r) => void applyRecognition(r)} disabled={busy} />
@@ -158,7 +159,6 @@ export function MealForm({ initial, day, draft, onDone }: FormProps<Meal> & { dr
         <label>备注<textarea value={notes} maxLength={2000} onChange={(e) => setNotes(e.target.value)} /></label>
       </details>
       <button type="submit" disabled={busy}>{busy ? "保存中…" : draft ? "确认并记录" : "保存"}</button>
-      {initial && <MealSharePanel meal={initial} onDone={(message) => onDone(message)} />}
       {initial && <button type="button" className="ghost-danger" disabled={busy} onClick={() => void remove()}>删除这条记录</button>}
     </form>
   );

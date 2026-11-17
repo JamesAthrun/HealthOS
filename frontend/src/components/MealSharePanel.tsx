@@ -46,7 +46,7 @@ export function MealSharePanel({ meal, onDone }: { meal: Meal; onDone: (message:
 
   return (
     <details className="more" onToggle={(e) => load(e.currentTarget.open)}>
-      <summary>与好友共享这一餐</summary>
+      <summary>🤝 和好友分享这一餐</summary>
       <div className="stack">
         {(error || loadError) && <p className="error" role="alert">{error || loadError}</p>}
         {friends === null && !loadError && <p className="muted">加载中…</p>}

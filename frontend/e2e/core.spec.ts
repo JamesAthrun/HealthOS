@@ -149,7 +149,7 @@ test("加好友后分享一餐，对方在消息页接受并记到自己账户",
   expect(created.status()).toBe(201);
   await page.goto("/meals/");
   await page.getByRole("button", { name: /e2e火锅/ }).first().click();
-  await page.getByText("与好友共享这一餐").click();
+  await page.getByText("和好友分享这一餐").click();
   await page.getByRole("button", { name: "测试管理员" }).click();
   // 还有一个没用 HealthOS 的人：3 人平分
   await page.getByRole("button", { name: "增加一人" }).click();
